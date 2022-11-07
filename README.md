@@ -2,7 +2,7 @@
 * Team: Addie Currin, Haowei Wang, Jennah Gosciak, Yiping Zuo
 
 Folder structure:
-00_data/
-01_input/
-02_programs/
-03_output/
+- 00_data/
+- 01_input/
+- 02_programs/
+- 03_output/
