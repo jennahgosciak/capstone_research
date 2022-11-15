@@ -14,16 +14,31 @@ library(sf)
 ```{r}
 # load the arrests
 ar <- read_csv("../00_data/arrests_2017_2019.csv")
-ar
+ar %>% 
+  head()
 ar_sf <- ar %>% 
-  st_as_sf(.,coords=c("longitude", "latitude"),crs=4326)
+  st_as_sf(coords=c("longitude", "latitude"), crs = 4326)
 ```
 ```{r}
-ar_sf %>% 
-  ggplot() +
-  geom_sf() +
-  theme_void()
+# load shootings
+st <- read_csv("../00_data/shootings_2017_2019.csv")
+st %>% 
+  head()
+
+st_sf <- st %>% 
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
 ```
+
+```{r}
+cp <- read_csv("../00_data/complaints_2017_2019.csv")
+cp %>% 
+  head()
+
+cp_sf <- cp %>% 
+  filter(!is.na(longitude) & !is.na(latitude)) %>% 
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+```
+
 ```{r}
 # load oz data
 nyc_oz <- st_read("../00_data/nyc_oz.geojson")
@@ -39,9 +54,9 @@ nyc_oz %>%
 
 
 ```{r}
-# oz for nys
+# spatial joins
 ar_oz <- ar_sf %>% 
-  st_join(nyc_oz, left = TRUE)
+  st_join(nyc_oz, left=FALSE)
 
 ar_oz %>% 
   as.data.frame() %>% 
@@ -53,6 +68,32 @@ ar_oz %>%
 ```
 
 ```{r}
+st_oz <- st_sf %>% 
+  st_join(nyc_oz, left = FALSE)
+
+st_oz %>% 
+  as.data.frame() %>% 
+  group_by(DESIGNATED) %>% 
+  summarize(n = n())
+
+st_oz %>% 
+  head()
+```
+```{r}
+cp_oz <- cp_sf %>% 
+  st_join(nyc_oz, left = FALSE)
+
+cp_oz %>% 
+  as.data.frame() %>% 
+  group_by(DESIGNATED) %>% 
+  summarize(n = n())
+
+cp_oz %>% 
+  head()
+```
+
+
+```{r}
 # write data
 ar_oz %>% 
   as.data.frame() %>% 
@@ -61,6 +102,27 @@ ar_oz %>%
 ar_oz %>% 
   st_write("../00_data/ar_oz.geojson",
            delete_dsn = TRUE)
+```
+
+```{r}
+st_oz %>% 
+  as.data.frame() %>% 
+  write_csv("../00_data/st_oz.csv")
+
+st_oz %>% 
+  st_write("../00_data/st_oz.geojson",
+           delete_dsn = TRUE)
+```
+
+```{r}
+cp_oz %>% 
+  as.data.frame() %>% 
+  write_csv("../00_data/cp_oz.csv")
+
+# cp_oz %>% 
+#   select(-c(cmplnt_fr_tm, cmplnt_to_tm)) %>% 
+#   st_write("../00_data/cp_oz.geojson",
+#            delete_dsn = TRUE)
 ```
 
 
