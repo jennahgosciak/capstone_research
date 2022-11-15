@@ -67,4 +67,30 @@ cp %>%
   write_csv("../00_data/complaints_2017_2019.csv", na="")
 ```
 
+# Load OZ data
+```{r}
+# opportunity zones
+oz <- st_read("../00_data/Opportunity_Zone_Eligible_Census_Tracts.geojson")
+oz %>% 
+  head()
+```
+
+```{r}
+# filter by state
+ny_oz <- oz %>% 
+  filter(!is.na(DESIGNATED)) %>% 
+  filter(STATE == 36)
+
+nyc_oz <- ny_oz %>% 
+  filter(COUNTY %in% c("005", "061", "085", "081", "047"))
+
+nyc_oz %>% 
+  st_write("../00_data/nyc_oz.geojson",
+           delete_dsn = TRUE)
+
+nyc_oz %>% 
+  as.data.frame() %>% 
+  group_by(DESIGNATED) %>% 
+  summarize(n = n())
+```
 
