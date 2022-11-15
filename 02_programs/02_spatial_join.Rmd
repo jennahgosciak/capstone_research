@@ -1,0 +1,78 @@
+---
+title: "Downloads crime data from NYC Open Data"
+output: html_document
+author: Jennah Gosciak
+date: "2022-11-07"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate)
+library(sf)
+```
+```{r}
+# load the arrests
+ar <- read_csv("../00_data/arrests_2017_2019.csv") %>% 
+  head(1000)
+ar
+ar_sf <- ar %>% 
+  st_as_sf(.,coords=c("longitude", "latitude"),crs=4326)
+```
+```{r}
+ar_sf %>% 
+  ggplot() +
+  geom_sf() +
+  theme_void()
+```
+```{r}
+# opportunity zones
+oz <- st_read("../00_data/Opportunity_Zone_Eligible_Census_Tracts.geojson")
+oz %>% 
+  head()
+```
+```{r}
+# filter by state
+ny_oz <- oz %>% 
+  filter(!is.na(DESIGNATED)) %>% 
+  filter(STATE == 36)
+
+nyc_oz <- ny_oz %>% 
+  filter(COUNTY %in% c("005", "061", "085", "081", "047"))
+
+nyc_oz %>% 
+  st_write("../00_data/nyc_oz.geojson",
+           delete_dsn = TRUE)
+
+nyc_oz %>% 
+  as.data.frame() %>% 
+  group_by(DESIGNATED) %>% 
+  summarize(n = n())
+```
+
+```{r}
+nyc_oz %>% 
+  ggplot() +
+  geom_sf(aes(fill = DESIGNATED)) +
+  geom_sf(data = ar_sf, color = 'red') +
+  theme_void()
+```
+
+
+```{r}
+# oz for nys
+ar_oz <- ar_sf %>% 
+  st_join(nyc_oz, left = TRUE)
+
+ar_oz %>% 
+  as.data.frame() %>% 
+  group_by(DESIGNATED) %>% 
+  summarize(n = n())
+
+ar_oz %>% 
+  head()
+```
+
+
+
+
