@@ -24,70 +24,75 @@ library("sandwich")
 # load ozs for nyc
 oz <- st_read("../00_data/nyc_oz.geojson")
 
-oz %>% 
-  filter(is.na(DESIGNATED)) %>% 
-  nrow() %>% 
-  equals(0) %>% 
+oz %>%
+  filter(is.na(DESIGNATED)) %>%
+  nrow() %>%
+  equals(0) %>%
   stopifnot()
 ```
 ```{r}
 # plot
-oz %>% 
+oz %>%
   nrow()
 
-oz %>% 
-  as.data.frame() %>% 
-  group_by(DESIGNATED) %>% 
+oz %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED) %>%
   summarize(n = n()) %>%
-  ungroup() %>% 
-  mutate(per = n/sum(n))
+  ungroup() %>%
+  mutate(per = n / sum(n))
 ```
 There are 1,448 total selected and eligible OZs. 306 (~21%) were selected and 1,142 (~79%) were only eligible.
 
 ```{r}
-oz %>% 
-  filter(DESIGNATED == "True" | (DESIGNATED == "False" & LIC == "True")) %>% 
-  as.data.frame() %>% 
-  group_by(DESIGNATED) %>% 
+oz %>%
+  filter(DESIGNATED == "True" | (DESIGNATED == "False" & LIC == "True")) %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED) %>%
   summarize(n = n()) %>%
-  ungroup() %>% 
-  mutate(per = n/sum(n),
-         total = sum(n))
-
+  ungroup() %>%
+  mutate(
+    per = n / sum(n),
+    total = sum(n)
+  )
 ```
 When dropping eligible and not selected tracts that were *not* LIC, there are 1,235 total selected and eligible OZs. 929 (~75%) were only eligible. Note this is the sample used in Chen et al., 2021.
 
 ```{r}
-oz %>% 
-  filter(DESIGNATED == "True" | (DESIGNATED == "False" & LIC == "True")) %>% 
-  as.data.frame() %>% 
-  group_by(DESIGNATED, COUNTY) %>% 
+oz %>%
+  filter(DESIGNATED == "True" | (DESIGNATED == "False" & LIC == "True")) %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED, COUNTY) %>%
   summarize(n = n()) %>%
-  group_by(COUNTY) %>% 
-  mutate(per = n/sum(n),
-         total = sum(n)) %>% 
+  group_by(COUNTY) %>%
+  mutate(
+    per = n / sum(n),
+    total = sum(n)
+  ) %>%
   ggplot() +
   geom_col(aes(COUNTY, n, fill = DESIGNATED)) +
-  scale_fill_manual(values=wes_palette(n=3, name="GrandBudapest1")) +
+  scale_fill_manual(values = wes_palette(n = 3, name = "GrandBudapest1")) +
   theme_classic()
 
-oz %>% 
-  filter(DESIGNATED == "True" | (DESIGNATED == "False" & LIC == "True")) %>% 
-  as.data.frame() %>% 
-  group_by(DESIGNATED, COUNTY) %>% 
+oz %>%
+  filter(DESIGNATED == "True" | (DESIGNATED == "False" & LIC == "True")) %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED, COUNTY) %>%
   summarize(n = n()) %>%
-  group_by(COUNTY) %>% 
-  mutate(per = n/sum(n),
-         total = sum(n)) %>% 
+  group_by(COUNTY) %>%
+  mutate(
+    per = n / sum(n),
+    total = sum(n)
+  ) %>%
   ggplot() +
   geom_col(aes(COUNTY, per, fill = DESIGNATED)) +
-  scale_fill_manual(values=wes_palette(n=3, name="Moonrise2")) +
+  scale_fill_manual(values = wes_palette(n = 3, name = "Moonrise2")) +
   theme_classic()
 ```
 
 ```{r}
 # load varlist
-acs_varlist <- readxl::read_excel("../00_data/acs_varlist.xlsx") %>% 
+acs_varlist <- readxl::read_excel("../00_data/acs_varlist.xlsx") %>%
   filter(include == 1)
 acs_varlist
 
@@ -95,98 +100,111 @@ acs_vars <- acs_varlist$variable
 names(acs_vars) <- acs_varlist$description
 
 # loading acs data
-acs_nyc <- get_acs(geography = "tract", variables = acs_vars,
-                state = "NY", county = c("047", "085", "081", "061", "005"),
-                year = 2020)
+acs_nyc <- get_acs(
+  geography = "tract", variables = acs_vars,
+  state = "NY", county = c("047", "085", "081", "061", "005"),
+  year = 2020
+)
 
-acs_nyc_wide <- acs_nyc %>% 
-  pivot_wider(id_cols = c("GEOID", "NAME"), names_from = "variable", values_from = "estimate") %>% 
-  mutate(pct_white = white_population / population,
-         minutes_commute_avg =  minutes_commute / employed_population,
-         pct_higher_ed = rowSums(select(., c(associate, bachelor, master, professional_school, doctoral)), na.rm = T) / population,
-         pct_rent = renter_occupied / total_housing,
-         pct_native_hc_covered = native_born_hc_covered / native_born,
-         pct_poverty = poverty / population)
+acs_nyc_wide <- acs_nyc %>%
+  pivot_wider(id_cols = c("GEOID", "NAME"), names_from = "variable", values_from = "estimate") %>%
+  mutate(
+    pct_white = white_population / population,
+    minutes_commute_avg = minutes_commute / employed_population,
+    pct_higher_ed = rowSums(select(., c(associate, bachelor, master, professional_school, doctoral)), na.rm = T) / population,
+    pct_rent = renter_occupied / total_housing,
+    pct_native_hc_covered = native_born_hc_covered / native_born,
+    pct_poverty = poverty / population
+  )
 
 constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
-acs_nyc_wide %>% 
+acs_nyc_wide %>%
   head()
 ```
 ```{r}
 # merge to acs
-acs_oz <- oz %>% 
-  left_join(acs_nyc_wide, by = "GEOID") %>% 
+acs_oz <- oz %>%
+  left_join(acs_nyc_wide, by = "GEOID") %>%
   filter(!(population < 5 | is.na(population)))
 ```
 
 ```{r}
-acs_oz %>% 
-  as.data.frame() %>% 
-  group_by(DESIGNATED) %>% 
-  summarize(across(population:pct_poverty, mean, na.rm = T)) %>% 
-  pivot_longer(cols = c(population:pct_poverty)) %>% 
-  mutate(value = round(value, 2),
-         designated_desc = if_else(DESIGNATED == "True", "designated", "eligible")) %>%
+acs_oz %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED) %>%
+  summarize(across(population:pct_poverty, mean, na.rm = T)) %>%
+  pivot_longer(cols = c(population:pct_poverty)) %>%
+  mutate(
+    value = round(value, 2),
+    designated_desc = if_else(DESIGNATED == "True", "designated", "eligible")
+  ) %>%
   pivot_wider(id_cols = "name", names_from = "designated_desc", values_from = "value")
-
 ```
 ```{r}
 # do significance testing
-acs_oz_clean <- acs_oz %>% 
-  as.data.frame() %>% 
-  mutate(treatment = if_else(DESIGNATED == "True", 1, 0)) %>% 
+acs_oz_clean <- acs_oz %>%
+  as.data.frame() %>%
+  mutate(treatment = if_else(DESIGNATED == "True", 1, 0)) %>%
   assertr::verify(!is.na(DESIGNATED))
 
-test_baseline_significance <- function(outcome, print=FALSE,
+test_baseline_significance <- function(outcome, print = FALSE,
                                        data = acs_oz_clean) {
   mod <- lm(paste0(outcome, " ~ treatment"), data = data)
-  
+
   if (print == TRUE) {
-    summary(mod) %>% 
-      print() 
+    summary(mod) %>%
+      print()
   }
-  
+
   vals <- coeftest(mod, vcov = vcovHC(mod, type = "HC0"))
-  treat_est <- vals[2,1] 
-  treat_se <- vals[2,2]
-  treat_pval <- vals[2,4]
-  asterisk <- case_when(treat_pval < 0.01 ~ "***",
-                        treat_pval < 0.05 ~ "**",
-                        treat_pval < 0.1 ~ "*",
-                        TRUE ~ NA_character_)
-  
-  data.frame("var" = outcome,
-             "difference" = round(treat_est, 3),
-             "se" = round(treat_se, 3),
-             "pval" = round(treat_pval, 4),
-             "ast" = asterisk)
-  
+  treat_est <- vals[2, 1]
+  treat_se <- vals[2, 2]
+  treat_pval <- vals[2, 4]
+  asterisk <- case_when(
+    treat_pval < 0.01 ~ "***",
+    treat_pval < 0.05 ~ "**",
+    treat_pval < 0.1 ~ "*",
+    TRUE ~ NA_character_
+  )
+
+  data.frame(
+    "var" = outcome,
+    "difference" = round(treat_est, 3),
+    "se" = round(treat_se, 3),
+    "pval" = round(treat_pval, 4),
+    "ast" = asterisk
+  )
 }
 ```
 ```{r}
-diff_results <- map_dfr(c(names(acs_vars),
-                          constructs), ~test_baseline_significance(.))
+diff_results <- map_dfr(c(
+  names(acs_vars),
+  constructs
+), ~ test_baseline_significance(.))
 diff_results
 ```
 ```{r}
-diff_results_subsample <- map_dfr(c(names(acs_vars),
-                          constructs), ~test_baseline_significance(.,
-                                                                   data = acs_oz_clean %>% 
-                                                                     filter(DESIGNATED == "True" | 
-                                                                             (DESIGNATED == "False" & LIC == "True"))))
+diff_results_subsample <- map_dfr(c(
+  names(acs_vars),
+  constructs
+), ~ test_baseline_significance(.,
+  data = acs_oz_clean %>%
+    filter(DESIGNATED == "True" |
+      (DESIGNATED == "False" & LIC == "True"))
+))
 diff_results_subsample
 ```
 
 
 ```{r}
 boros <- st_read("https://data.cityofnewyork.us/resource/7t3b-ywvw.geojson")
-plot_acs <- function(var, gdf=acs_oz) {
+plot_acs <- function(var, gdf = acs_oz) {
   var <- enquo(var)
-  gdf %>% 
+  gdf %>%
     ggplot() +
     geom_sf(data = boros, fill = NA, color = "gray") +
     geom_sf(aes(fill = !!var), color = NA) +
-    theme_void()+
+    theme_void() +
     scale_fill_continuous(high = "#132B43", low = "#56B1F7")
 }
 
@@ -194,8 +212,8 @@ plot_acs(population)
 plot_acs(pct_poverty)
 plot_acs(pct_rent)
 plot_acs(pct_higher_ed)
-plot_acs(gdf = acs_oz %>% 
-           filter(minutes_commute_avg < 140), minutes_commute_avg)
+plot_acs(gdf = acs_oz %>%
+  filter(minutes_commute_avg < 140), minutes_commute_avg)
 plot_acs(pct_white)
 ```
 

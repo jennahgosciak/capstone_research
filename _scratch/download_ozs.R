@@ -17,11 +17,12 @@ download.file(zipurl, str_glue("{zipdir}/{zipname}"))
 
 # unzip
 unzip(str_glue("{zipdir}/{fname}"),
-      exdir=str_glue("{zipdir}/{fname}/"))
+  exdir = str_glue("{zipdir}/{fname}/")
+)
 
 ########################################
 # Loading spatial data
 ########################################
 
-shpfile <- dir_ls(str_glue("{zipdir}/{fname}/"), regexp="[.]shp$")
+shpfile <- dir_ls(str_glue("{zipdir}/{fname}/"), regexp = "[.]shp$")
 oz_shp <- st_read(shpfile)
