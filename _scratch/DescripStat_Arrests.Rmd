@@ -1,0 +1,132 @@
+---
+title: "DescripStat_Arrests"
+author: "Adelaide Currin"
+date: "2022-11-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(sf)
+library(lubridate)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+#download data
+ar_oz <- read_csv("../00_data/ar_oz.csv")
+```
+
+```{r}
+#date
+ar_oz <- ar_oz %>%
+  mutate(arrest_month_yr = as.Date(str_c(month(arrest_date), 1, year(arrest_date), sep="-"), "%m-%d-%Y")) %>% 
+  mutate(year = year(arrest_month_yr))
+
+# Borough pop from 2016-2020 ACS
+boro.totals <- data.frame(table(ar_oz$arrest_boro))
+boropops <- c(1427056, 2576771, 1629153, 2270976, 475596)
+boro.totals[,"BoroPop"] <- (boropops)
+names(boro.totals)[1] <- "arrest_boro"
+boro.totals <- boro.totals %>% select(arrest_boro, BoroPop)
+
+ar_oz <- left_join(ar_oz, boro.totals, by = "arrest_boro") %>% 
+  mutate(BoroPop = as.numeric(BoroPop))
+```
+
+```{r}
+#arrests per day
+ar_oz %>% 
+  group_by(arrest_date) %>% 
+  summarize(n = n()) %>% 
+  summarize(avg_pday = mean(n))
+
+ar_oz %>% 
+  group_by(law_cat_cd, arrest_date) %>% 
+  summarize(n = n()) %>% 
+  summarize(avg_pday = mean(n))
+
+ar_oz %>% 
+  group_by(arrest_boro, arrest_date) %>% 
+  summarize(n = n()) %>% 
+  summarize(avg_pday = mean(n))
+
+ar_oz %>% 
+  group_by(DESIGNATED, arrest_date) %>% 
+  summarize(n = n()) %>% 
+  summarize(avg_pday = mean(n))
+
+```
+
+```{r}
+#Looking at arrest type (felony, infraction, misdemeanor, violation, NA)
+ar_oz %>% 
+  group_by(law_cat_cd, year) %>% 
+  summarize(n = n())
+
+ar_oz %>% 
+  group_by(law_cat_cd, DESIGNATED) %>% 
+  summarize(n = n())
+
+ar_oz %>% 
+  filter(is.na(law_cat_cd)) %>% 
+  group_by(ofns_desc) %>% 
+  summarize(n = n())
+
+ar_oz %>% 
+  group_by(arrest_month_yr, law_cat_cd) %>% 
+  summarize(n = n()) %>%
+  ggplot() +
+  geom_line(aes(x = arrest_month_yr, y = n, color = law_cat_cd)) +
+  labs(x = "Month/year", y = "Number of arrests per month", color="Arrest type") +
+  theme_classic()
+
+```
+
+```{r}
+#Looking at boro
+options(scipen=10000)
+ar_oz %>% 
+  group_by(arrest_boro) %>% 
+  summarize(n = n()) %>%
+  ggplot() +
+  geom_col(aes(x = arrest_boro, y = n)) +
+  labs(x = "Borough", y = "Number of arrests per boro") +
+  theme_classic()
+
+ar_oz %>% 
+  group_by(arrest_month_yr, arrest_boro) %>% 
+  summarize(n = n()) %>%
+  ggplot() +
+  geom_line(aes(x = arrest_month_yr, y = n, color = arrest_boro)) +
+  labs(x = "Month/year", y = "Number of arrests per month", color="Boro") +
+  theme_classic()
+
+#This isn't working
+ar_oz %>% 
+  group_by(arrest_boro) %>% 
+  summarize(n = n()/BoroPop) %>%
+  ggplot() +
+  geom_col(aes(x = arrest_boro, y = n)) +
+  labs(x = "Borough", y = "Number of arrests per boro") +
+  theme_classic()
+
+```
+```{r}
+
+#Looking at designated
+
+ar_oz %>% 
+  group_by(arrest_month_yr, DESIGNATED) %>% 
+  summarize(n = n()) %>%
+  ggplot() +
+  geom_line(aes(x = arrest_month_yr, y = n, color = DESIGNATED)) +
+  labs(x = "Month/year", y = "Number of arrests per month", color="DESIGNATED") +
+  theme_classic()
+
+```
