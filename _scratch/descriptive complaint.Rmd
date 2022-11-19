@@ -22,18 +22,19 @@ head(cp)
 summary(cp)
 ```
 ```{r}
+##designated percentage
 cp_de <- cp %>%
   count(DESIGNATED)
 cp_de %>%
   mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
-
+##designated and low income community
+cp_dl <- cp %>%
+  count(LIC, DESIGNATED, sort=TRUE)
+cp_dl %>%
+  mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
 ```
 
 ```{r}
-cp_offence <- cp %>%
-  count(law_cat_cd, crm_atpt_cptd_cd, sort=TRUE)
-cp_offence %>%
-  mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
 
 ##law type percentage
 cp_lawlevel <- cp %>%
@@ -45,18 +46,22 @@ cp_lawlevel1 <- cp %>%
   count(law_cat_cd, crm_atpt_cptd_cd, sort=TRUE)
 cp_lawlevel1 %>%
   mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
+```
 
+```{r}
 #offence type percentage
 cp_offence <- cp %>%
   count(ofns_desc, sort=TRUE)
 cp_offence %>%
   mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
 cp_offence1 <- cp %>%
-  filter(DESIGNATED=TRUE)%>%
+  filter(DESIGNATED==TRUE)%>%
   count(ofns_desc, sort=TRUE)
 cp_offence1 %>%
   mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
+```
 
+```{r}
 ##boro percentage
 cp_boro <- cp %>%
   count(boro_nm,sort=TRUE)
@@ -70,12 +75,28 @@ cp_boro1 %>%
 
 ```
 ```{r}
+## suspect 
+cp_sus <- cp %>%
+  count(susp_race, susp_sex, sort=TRUE)
+cp_sus %>%
+  mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
+cp_sus1 <- cp %>%
+  filter(DESIGNATED==TRUE)%>%
+  count(susp_race, susp_sex, sort=TRUE)
+cp_sus1 %>%
+  mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
+```
 
+```{r}
+##time trend of complaints in different boro
   ggplot(cp %>% filter((DESIGNATED == TRUE) )) +
   geom_histogram(mapping = aes(x = cmplnt_fr_dt, fill = boro_nm), alpha = 0.5) +
-  labs(title = "NYC complaints Over Time (boro)", y = "count")
+  labs(title = "NYC complaints Over Time (boro)",x="date of occurance for the report event", y = "count")
 ```
 ```{r}
-
+##time trend of complaints of each level of offence
+ggplot(cp %>% filter((DESIGNATED == TRUE) )) +
+  geom_histogram(mapping = aes(x = cmplnt_fr_dt, fill = law_cat_cd), alpha = 0.5, position = "identity") +
+  labs(title = "NYC complaints Over Time (level of offence)",x="date of occurance for the report event", y = "count")
 ```
 
