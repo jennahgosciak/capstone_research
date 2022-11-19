@@ -1,0 +1,81 @@
+---
+title: "complaint"
+output: html_document
+date: "2022-11-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r}
+cp <- read_csv("../00_data/cp_oz.csv")
+head(cp)
+```
+```{r}
+summary(cp)
+```
+```{r}
+cp_de <- cp %>%
+  count(DESIGNATED)
+cp_de %>%
+  mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
+
+```
+
+```{r}
+cp_offence <- cp %>%
+  count(law_cat_cd, crm_atpt_cptd_cd, sort=TRUE)
+cp_offence %>%
+  mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
+
+##law type percentage
+cp_lawlevel <- cp %>%
+  count(law_cat_cd, crm_atpt_cptd_cd, sort=TRUE)
+cp_lawlevel %>%
+  mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
+cp_lawlevel1 <- cp %>%
+  filter(DESIGNATED==TRUE) %>%
+  count(law_cat_cd, crm_atpt_cptd_cd, sort=TRUE)
+cp_lawlevel1 %>%
+  mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
+
+#offence type percentage
+cp_offence <- cp %>%
+  count(ofns_desc, sort=TRUE)
+cp_offence %>%
+  mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
+cp_offence1 <- cp %>%
+  filter(DESIGNATED=TRUE)%>%
+  count(ofns_desc, sort=TRUE)
+cp_offence1 %>%
+  mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
+
+##boro percentage
+cp_boro <- cp %>%
+  count(boro_nm,sort=TRUE)
+cp_boro %>%
+  mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
+cp_boro1 <- cp %>%
+  filter(DESIGNATED==TRUE)%>%
+  count(boro_nm,sort=TRUE)
+cp_boro1 %>%
+  mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
+
+```
+```{r}
+
+  ggplot(cp %>% filter((DESIGNATED == TRUE) )) +
+  geom_histogram(mapping = aes(x = cmplnt_fr_dt, fill = boro_nm), alpha = 0.5) +
+  labs(title = "NYC complaints Over Time (boro)", y = "count")
+```
+```{r}
+
+```
+
