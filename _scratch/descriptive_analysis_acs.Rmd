@@ -7,9 +7,7 @@ output:
     df_print: paged
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+This notebook generates some initial descriptives of selected and eligible OZ tracts in NYC using data from the American Community Survey.
 
 ```{r}
 library(tidyverse)
