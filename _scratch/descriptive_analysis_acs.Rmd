@@ -155,6 +155,8 @@ test_baseline_significance <- function(outcome, print = FALSE,
   }
 
   vals <- coeftest(mod, vcov = vcovHC(mod, type = "HC0"))
+  print(vals)
+  int <- vals[1,1]
   treat_est <- vals[2, 1]
   treat_se <- vals[2, 2]
   treat_pval <- vals[2, 4]
@@ -165,12 +167,19 @@ test_baseline_significance <- function(outcome, print = FALSE,
     TRUE ~ NA_character_
   )
 
+  if (str_detect(outcome, "pct")) {
+    treat_est <- treat_est * 100
+    int <- int * 100
+    treat_se <- treat_se * 100
+  }
   data.frame(
     "var" = outcome,
-    "difference" = round(treat_est, 3),
-    "se" = round(treat_se, 3),
-    "pval" = round(treat_pval, 4),
-    "ast" = asterisk
+    "mean_1" = round(int + treat_est, 2),
+    "mean_0" = round(int, 2),
+    "difference" = if_else(!is.na(asterisk), paste0(round(treat_est, 2), asterisk),
+                           as.character(round(treat_est, 2))),
+    "se" = round(treat_se, 2),
+    "pval" = round(treat_pval, 4)
   )
 }
 ```
@@ -190,7 +199,14 @@ diff_results_subsample <- map_dfr(c(
     filter(DESIGNATED == "True" |
       (DESIGNATED == "False" & LIC == "True"))
 ))
-diff_results_subsample
+diff_results_subsample %>% 
+  write_csv("../03_output/balance_tests.csv")
+
+acs_oz_clean %>%
+    filter(DESIGNATED == "True" |
+      (DESIGNATED == "False" & LIC == "True")) %>% 
+  group_by(DESIGNATED) %>% 
+  summarize(n = n())
 ```
 
 
@@ -213,6 +229,15 @@ plot_acs(pct_higher_ed)
 plot_acs(gdf = acs_oz %>%
   filter(minutes_commute_avg < 140), minutes_commute_avg)
 plot_acs(pct_white)
+
+acs_oz %>%
+    ggplot() +
+    geom_sf(data = boros, fill = NA, color = "gray") +
+    geom_sf(aes(fill = if_else(DESIGNATED=="True", "Selected", "Eligible")), color = NA) +
+    theme_void() +
+  labs(fill = "Designation")
+
+ggsave("../03_output/selected_eligible_tracts.png")
 ```
 
 
