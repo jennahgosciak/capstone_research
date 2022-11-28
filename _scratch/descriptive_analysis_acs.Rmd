@@ -231,6 +231,7 @@ plot_acs(gdf = acs_oz %>%
 plot_acs(pct_white)
 
 acs_oz %>%
+  filter(DESIGNATED == "True" | (DESIGNATED == "False" & LIC == "True")) %>% 
     ggplot() +
     geom_sf(data = boros, fill = NA, color = "gray") +
     geom_sf(aes(fill = if_else(DESIGNATED=="True", "Selected", "Eligible")), color = NA) +
