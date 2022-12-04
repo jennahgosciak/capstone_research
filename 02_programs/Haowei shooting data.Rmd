@@ -1,0 +1,127 @@
+output:
+  html_document:
+    df_print: paged
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+
+
+```{r}
+library(tidyverse)
+library(tidycensus)
+library(magrittr)
+library(sf)
+library(wesanderson) # for colors :)
+library("lmtest")
+library("sandwich")
+```
+
+
+```{r}
+# load ozs for nyc
+st <- read.csv("../00_data/st_oz.csv")
+st %>%
+  filter(is.na(DESIGNATED)) %>%
+  nrow() %>%
+  equals(0) %>%
+  stopifnot()
+head(st)
+```
+
+```{r}
+# summary
+st %>%
+  nrow()
+summary(st)
+```
+
+
+```{r}
+# designated percentage
+st_de <- st %>%
+  count(DESIGNATED)
+st_de %>%
+  mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
+```
+
+
+```{r}
+##designated and low income community
+st_dl <- st %>%
+  count(LIC, DESIGNATED, sort=TRUE)
+st_dl %>%
+  mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
+```
+There are 1,448 total selected and eligible OZs. 306 (~21%) were selected and 1,142 (~79%) were only eligible.
+```{r}
+##boro percentage
+st_boro <- st %>%
+  count(boro,sort=TRUE)
+st_boro %>%
+  mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
+```
+
+```{r}
+oz %>%
+  filter(DESIGNATED == "True" | (DESIGNATED == "False" & LIC == "True")) %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED, boro) %>%
+  summarize(n = n()) %>%
+  mutate(
+    per = n / sum(n),
+    total = sum(n)
+  ) %>%
+  ggplot() +
+  geom_col(aes(boro, n, fill = DESIGNATED)) +
+  theme_classic()
+
+```
+
+```{r}
+##low income communicity percentage
+st_lic_per <- st %>%
+  count(TRACT_TYPE, sort=TRUE)
+st_lic_per %>%
+  mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
+```
+
+
+
+```{r}
+## race&sex 
+st_race_sex <- st %>%
+  count(vic_race, vic_sex, sort=TRUE)
+st_race_sex %>%
+  mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
+
+```
+```{r}
+##age group
+st_vic_age_group <- st %>%
+  count(vic_age_group, sort=TRUE)
+st_vic_age_group %>%
+  mutate(Percentage=paste0(round(n/sum(n)*100,2),"%"))
+
+```
+
+```{r}
+##time trend of shootings in different boro
+ggplot(st %>% filter((DESIGNATED == TRUE) )) +
+  geom_line(mapping = aes(x = occur_date, fill=boro), alpha = 0.5) +
+  labs(title = "NYC shootings Over Time (boro)",x="date of occurance for the report event", y = "count")
+```
+```{r}
+##time trend of complaints of each level of offence
+ggplot(cp %>% filter((DESIGNATED == TRUE) )) +
+  geom_histogram(mapping = aes(x = cmplnt_fr_dt, fill = law_cat_cd), alpha = 0.5, position = "identity") +
+  labs(title = "NYC complaints Over Time (level of offence)",x="date of occurance for the report event", y = "count")
+```
+
+```{r}
+
+```
+```
+
