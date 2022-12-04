@@ -72,8 +72,7 @@ acs_oz <- oz %>%
 #Load Urban
 urban <-  read_excel("../00_data/urbaninstitute_tractlevelozanalysis_update01142021.xlsx") %>% 
   select(geoid, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64) %>% 
-  rename(GEOID = geoid) %>% 
-  mutate(GEOID = as.numeric(GEOID))
+  rename(GEOID = geoid)
 
 acs_oz <-  acs_oz %>% 
   left_join(urban, by = c("GEOID"))
