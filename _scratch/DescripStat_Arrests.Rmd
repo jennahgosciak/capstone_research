@@ -11,12 +11,6 @@ library(sf)
 library(lubridate)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
 ```{r}
 #download data
 ar_oz <- read_csv("../00_data/ar_oz.csv")
@@ -171,7 +165,7 @@ ar_oz %>%
 
 ```
 ``` {r}
-#Breaking arrests into categories (felonies and misdemeanor). Robbery, assault, burglary, weapons, misdemeanor offenses (e.g., criminal mischief, fraud, gambling, loitering, petty theft, and larceny), other felonies (e.g., escape 3 and forgery), drugs (e.g., dangerous drugs), property (e.g., grand larceny, burglary, and burglary tools), and violent felonies (e.g., homicide, rape, robbery, arson, felony assault, and kidnapping)
+#Breaking arrests into categories (felonies and misdemeanor). Robbery, assault, burglary, weapons, misdemeanor offenses (e.g., criminal mischief, fraud, gambling, loitering, petty theft, and larceny), other felonies (e.g., escape 3 and forgery), drugs (e.g., dangerous drugs), property (e.g., grand larceny, burglary, and burglary tools), and violent felonies (e.g., homicide, rape, robbery, arson, felony assault, and kidnapping). Then also https://www.criminaljustice.ny.gov/crimnet/ojsa/stats.htm
 
 ar_oz_MisFel <-ar_oz %>% filter(law_cat_cd == "M" | law_cat_cd == "F")
 unique(ar_oz_MisFel$ofns_desc) 
@@ -183,19 +177,46 @@ ar_oz <- ar_oz %>%   mutate(misdemeanor = ifelse(law_cat_cd == "M", 1, 0)) %>%
   mutate(burglary = ifelse(ofns_desc == "BURGLARY", 1, 0)) %>% 
   mutate(weapons = ifelse(ofns_desc == "DANGEROUS WEAPONS", 1, 0)) %>% 
   mutate(drugs = ifelse(ofns_desc == "DANGEROUS DRUGS" | ofns_desc == "LOITERING FOR DRUG PURPOSES", 1, 0)) %>% 
-  mutate(property = ifelse(ofns_desc == "GRAND LARCENY" | ofns_desc == "GRAND LARCENY OF MOTOR VEHICLE" | ofns_desc == "BURGLARY" | ofns_desc == "BURGLAR'S TOOLS", 1, 0)) %>% 
-  mutate(felony_other = ifelse(law_cat_cd == "F" & robbery == 0 & assault == 0 & burglary == 0 & weapons == 0, 1, 0))
-  #mutate(violent = ifelse(ofns_desc == "GRAND LARCENY" | ofns_desc == "GRAND LARCENY OF MOTOR VEHICLE" | ofns_desc == "BURGLARY" | ofns_desc == "BURGLAR'S TOOLS", 1, 0)) %>% 
+  mutate(felony_other = ifelse(law_cat_cd == "F" & robbery == 0 & assault == 0 & burglary == 0 & weapons == 0, 1, 0)) %>% 
+  #mutate(property = ifelse(ofns_desc == "GRAND LARCENY" | ofns_desc == "PETIT LARCENY" | ofns_desc == "GRAND LARCENY OF MOTOR VEHICLE" | ofns_desc == "BURGLARY" | ofns_desc == "BURGLAR'S TOOLS" | ofns_desc == "POSSESSION OF STOLEN PROPERTY 5" | ofns_desc == "UNAUTHORIZED USE OF A VEHICLE 3 (UUV)" | ofns_desc == "OTHER OFFENSES RELATED TO THEFT" | ofns_desc == "POSSESSION OF STOLEN PROPERTY", 1, 0)) %>% 
+  #mutate(violent = ifelse(ofns_desc == "HOMICIDE-NEGLIGENT-VEHICLE" | ofns_desc == "HOMICIDE-NEGLIGENT,UNCLASSIFIED" | ofns_desc == "RAPE" | ofns_desc == "ROBBERY" | ofns_desc == "ARSON" | ofns_desc == "FELONY ASSAULT" | ofns_desc == "KIDNAPPING & RELATED OFFENSES" | ofns_desc == "MURDER & NON-NEGL. MANSLAUGHTER" | ofns_desc == "MURDER & NON-NEGL. MANSLAUGHTE" | ofns_desc == "ASSAULT 3 & RELATED OFFENSES", 1, 0))
+  mutate(propertyny = ifelse(ofns_desc == "GRAND LARCENY" | ofns_desc == "PETIT LARCENY" | ofns_desc == "GRAND LARCENY OF MOTOR VEHICLE" | ofns_desc == "BURGLARY", 1, 0)) %>% 
+  mutate(violentny = ifelse(ofns_desc == "RAPE" | ofns_desc == "ROBBERY" | ofns_desc == "FELONY ASSAULT" | ofns_desc == "MURDER & NON-NEGL. MANSLAUGHTER" | ofns_desc == "MURDER & NON-NEGL. MANSLAUGHTE", 1, 0))
 
-
-ar_oz %>% 
-  filter(burglary == 1) %>% 
-  group_by(arrest_month_yr, DESIGNATED) %>% 
+ar_oz %>%
+  filter(violentny==1) %>% 
+  group_by(GEOID, arrest_month_yr, DESIGNATED) %>%
   summarize(n = n()) %>%
+  group_by(arrest_month_yr, DESIGNATED) %>%
+  summarize(avg = mean(n)) %>%
   ggplot() +
-  geom_line(aes(x = arrest_month_yr, y = n, color = DESIGNATED)) +
-  labs(x = "Month/year", y = "Number of violation arrests per month", color="DESIGNATED") +
+  geom_line(aes(x = arrest_month_yr, y = avg, color = if_else(DESIGNATED == TRUE,
+     "Selected", "Eligible"
+  ))) +
+  labs(
+     x = "Month/year", y = "Number of arrests",
+     title = "Average number of violent crime arrests per month and by census tract",
+     color = "Designation Status"
+  ) +
   theme_classic()
+
+ar_oz %>%
+  filter(propertyny==1) %>% 
+  group_by(GEOID, arrest_month_yr, DESIGNATED) %>%
+  summarize(n = n()) %>%
+  group_by(arrest_month_yr, DESIGNATED) %>%
+  summarize(avg = mean(n)) %>%
+  ggplot() +
+  geom_line(aes(x = arrest_month_yr, y = avg, color = if_else(DESIGNATED == TRUE,
+     "Selected", "Eligible"
+  ))) +
+  labs(
+     x = "Month/year", y = "Number of arrests",
+     title = "Average number of property crime arrests per month and by census tract",
+     color = "Designation Status"
+  ) +
+  theme_classic()
+
 ```
 
 
