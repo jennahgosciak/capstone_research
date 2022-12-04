@@ -9,6 +9,7 @@ date: "2022-11-07"
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(lubridate)
+library(sf)
 ```
 
 # Load arrests data
@@ -16,15 +17,16 @@ library(lubridate)
 ```{r}
 # load arrest data
 # note: this may take some time!
-ar <- read_csv("https://data.cityofnewyork.us/resource/8h9b-rp9u.csv?$where=arrest_date>='2017-01-01'+AND+arrest_date<'2019-01-01'&$limit=1000000")
+ar <- read_csv("https://data.cityofnewyork.us/resource/8h9b-rp9u.csv?$where=arrest_date>='2017-01-01'+AND+arrest_date<'2020-1-01'&$limit=1000000")
 ar
 
 ar %>%
   summarize(across(arrest_date, .fns = lst(min, max)))
 
-ar %>%
-  write_csv("../00_data/arrests_2017_2019.csv", na = "")
+ar %>% 
+  write_csv("../00_data/arrests_2017_2020.csv", na="")
 ```
+
 ```{r}
 # average arrests per day
 ar %>%
@@ -44,27 +46,27 @@ ar %>%
 # Load shootings data
 
 ```{r}
-st <- read_csv("https://data.cityofnewyork.us/resource/833y-fsy8.csv?$where=occur_date>='2017-01-01'+AND+occur_date<'2019-01-01'&$limit=1000000")
+st <- read_csv("https://data.cityofnewyork.us/resource/833y-fsy8.csv?$where=occur_date>='2017-01-01'+AND+occur_date<'2020-1-01'&$limit=1000000")
 st
 
 st %>%
   summarize(across(occur_date, .fns = lst(min, max)))
 
-st %>%
-  write_csv("../00_data/shootings_2017_2019.csv", na = "")
+st %>% 
+  write_csv("../00_data/shootings_2017_2020.csv", na="")
 ```
 
 # Load complaints data
 
 ```{r}
-cp <- read_csv("https://data.cityofnewyork.us/resource/qgea-i56i.csv?$where=cmplnt_fr_dt>='2017-01-01'+AND+cmplnt_fr_dt<'2019-01-01'&$limit=1000000")
+cp <- read_csv("https://data.cityofnewyork.us/resource/qgea-i56i.csv?$where=cmplnt_fr_dt>='2017-01-01'+AND+cmplnt_fr_dt<'2020-1-01'&$limit=10000000")
 cp
 
 cp %>%
   summarize(across(cmplnt_fr_dt, .fns = lst(min, max)))
 
-cp %>%
-  write_csv("../00_data/complaints_2017_2019.csv", na = "")
+cp %>% 
+  write_csv("../00_data/complaints_2017_2020.csv", na="")
 ```
 
 # Load OZ data
@@ -94,4 +96,6 @@ nyc_oz %>%
   group_by(DESIGNATED) %>%
   summarize(n = n())
 ```
+
+
 
