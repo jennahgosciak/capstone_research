@@ -17,6 +17,7 @@ library(sf)
 library(wesanderson) # for colors :)
 library("lmtest")
 library("sandwich")
+library(readxl)
 ```
 ```{r}
 # load ozs for nyc
@@ -65,6 +66,17 @@ acs_nyc_wide %>%
 acs_oz <- oz %>%
   left_join(acs_nyc_wide, by = "GEOID") %>%
   filter(!(population < 5 | is.na(population)))
+```
+
+```{r}
+#Load Urban
+urban <-  read_excel("../00_data/urbaninstitute_tractlevelozanalysis_update01142021.xlsx") %>% 
+  select(geoid, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64) %>% 
+  rename(GEOID = geoid) %>% 
+  mutate(GEOID = as.numeric(GEOID))
+
+acs_oz <-  acs_oz %>% 
+  left_join(urban, by = c("GEOID"))
 ```
 
 ```{r}
