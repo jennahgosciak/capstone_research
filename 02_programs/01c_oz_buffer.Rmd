@@ -47,6 +47,14 @@ oz_buffer %>%
   theme_void()
 
 oz_buffer %>% 
+  st_union() %>% 
+  ggplot() +
+  geom_sf(color = 'red') +
+  theme_void()
+  
+
+oz_buffer %>% 
+  st_union() %>% 
   st_write("../00_data/oz_buffer.geojson", delete_dsn = TRUE)
 ```
 

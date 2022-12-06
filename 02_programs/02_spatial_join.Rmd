@@ -16,6 +16,7 @@ library(sf)
 ar <- read_csv("../00_data/arrests_2017_2020.csv")
 ar %>%
   head()
+
 ar_sf <- ar %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>% 
   # convert to projected coordinate system, state plan ny, feet
@@ -101,9 +102,20 @@ ar_oz %>%
 
 ```{r}
 st_oz <- st_sf %>%
-  st_join(nyc_oz, left = FALSE) %>% 
+  st_join(nyc_oz, left = TRUE) %>% 
   st_join(oz_buffer, left = TRUE) %>% 
   mutate(buffer = if_else(is.na(buffer), FALSE, buffer))
+
+# checking no new obs introduced
+st_sf %>% 
+  as.data.frame() %>% 
+  nrow() %>% 
+  equals(
+    st_oz %>% 
+    as.data.frame() %>% 
+    nrow()
+  ) %>% 
+  stopifnot()
 
 st_oz %>%
   as.data.frame() %>%
@@ -136,6 +148,14 @@ cp_oz %>%
 
 cp_oz %>%
   head()
+
+cp_oz %>% 
+  filter(buffer == TRUE) %>% 
+  head(10000) %>% 
+  ggplot() +
+  geom_sf(data = oz_buffer) +
+  geom_sf(alpha=0.2, color = 'red') +
+  theme_void()
 ```
 
 
