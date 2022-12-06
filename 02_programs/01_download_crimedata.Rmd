@@ -23,8 +23,8 @@ ar
 ar %>%
   summarize(across(arrest_date, .fns = lst(min, max)))
 
-ar %>% 
-  write_csv("../00_data/arrests_2017_2020.csv", na="")
+ar %>%
+  write_csv("../00_data/arrests_2017_2020.csv", na = "")
 ```
 
 ```{r}
@@ -53,8 +53,8 @@ st %>%
   summarize(across(occur_date, .fns = lst(min, max)))
 
 
-st %>% 
-  write_csv("../00_data/shootings_2017_2020.csv", na="")
+st %>%
+  write_csv("../00_data/shootings_2017_2020.csv", na = "")
 ```
 
 # Load complaints data
@@ -67,8 +67,8 @@ cp %>%
   summarize(across(cmplnt_fr_dt, .fns = lst(min, max)))
 
 
-cp %>% 
-  write_csv("../00_data/complaints_2017_2020.csv", na="")
+cp %>%
+  write_csv("../00_data/complaints_2017_2020.csv", na = "")
 ```
 
 # Load OZ data
