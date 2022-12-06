@@ -13,7 +13,7 @@ library(sf)
 ```
 ```{r}
 # load the arrests
-ar <- read_csv("../00_data/arrests_2017_2019.csv")
+ar <- read_csv("../00_data/arrests_2017_2020.csv")
 ar %>%
   head()
 ar_sf <- ar %>%
@@ -21,7 +21,7 @@ ar_sf <- ar %>%
 ```
 ```{r}
 # load shootings
-st <- read_csv("../00_data/shootings_2017_2019.csv")
+st <- read_csv("../00_data/shootings_2017_2020.csv")
 st %>%
   head()
 
@@ -30,7 +30,7 @@ st_sf <- st %>%
 ```
 
 ```{r}
-cp <- read_csv("../00_data/complaints_2017_2019.csv")
+cp <- read_csv("../00_data/complaints_2017_2020.csv")
 cp %>%
   head()
 

@@ -19,26 +19,26 @@ library(lubridate)
 ar <- read_csv("https://data.cityofnewyork.us/resource/8h9b-rp9u.csv?$where=arrest_date>='2017-01-01'+AND+arrest_date<'2019-01-01'&$limit=1000000")
 ar
 
-ar %>% 
+ar %>%
   summarize(across(arrest_date, .fns = lst(min, max)))
 
-ar %>% 
-  write_csv("../00_data/arrests_2017_2019.csv", na="")
+ar %>%
+  write_csv("../00_data/arrests_2017_2019.csv", na = "")
 ```
 ```{r}
 # average arrests per day
-ar %>% 
-  group_by(arrest_date) %>% 
-  summarize(n = n()) %>% 
+ar %>%
+  group_by(arrest_date) %>%
+  summarize(n = n()) %>%
   summarize(avg_pday = mean(n))
 
-ar %>% 
-  mutate(arrest_month_yr = as.Date(str_c(month(arrest_date), 1, year(arrest_date), sep="-"), "%m-%d-%Y")) %>%
-  group_by(arrest_month_yr, law_cat_cd) %>% 
+ar %>%
+  mutate(arrest_month_yr = as.Date(str_c(month(arrest_date), 1, year(arrest_date), sep = "-"), "%m-%d-%Y")) %>%
+  group_by(arrest_month_yr, law_cat_cd) %>%
   summarize(n = n()) %>%
   ggplot() +
   geom_line(aes(x = arrest_month_yr, y = n, color = law_cat_cd)) +
-  labs(x = "Month/year", y = "Number of arrests per month", color="Arrest type") +
+  labs(x = "Month/year", y = "Number of arrests per month", color = "Arrest type") +
   theme_classic()
 ```
 # Load shootings data
@@ -47,11 +47,11 @@ ar %>%
 st <- read_csv("https://data.cityofnewyork.us/resource/833y-fsy8.csv?$where=occur_date>='2017-01-01'+AND+occur_date<'2019-01-01'&$limit=1000000")
 st
 
-st %>% 
+st %>%
   summarize(across(occur_date, .fns = lst(min, max)))
 
-st %>% 
-  write_csv("../00_data/shootings_2017_2019.csv", na="")
+st %>%
+  write_csv("../00_data/shootings_2017_2019.csv", na = "")
 ```
 
 # Load complaints data
@@ -60,11 +60,11 @@ st %>%
 cp <- read_csv("https://data.cityofnewyork.us/resource/qgea-i56i.csv?$where=cmplnt_fr_dt>='2017-01-01'+AND+cmplnt_fr_dt<'2019-01-01'&$limit=1000000")
 cp
 
-cp %>% 
+cp %>%
   summarize(across(cmplnt_fr_dt, .fns = lst(min, max)))
 
-cp %>% 
-  write_csv("../00_data/complaints_2017_2019.csv", na="")
+cp %>%
+  write_csv("../00_data/complaints_2017_2019.csv", na = "")
 ```
 
 
