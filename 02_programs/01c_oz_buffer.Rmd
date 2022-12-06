@@ -7,7 +7,7 @@ output:
     df_print: paged
 ---
 
-This notebook generates some initial descriptives of selected and eligible OZ tracts in NYC using data from the American Community Survey.
+Creates a buffer based on the average square footage of a NYC block.
 
 ```{r}
 library(tidyverse)
