@@ -17,7 +17,9 @@ ar <- read_csv("../00_data/arrests_2017_2020.csv")
 ar %>%
   head()
 ar_sf <- ar %>%
-  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>% 
+  # convert to projected coordinate system, state plan ny, feet
+  st_transform(2263)
 ```
 ```{r}
 # load shootings
@@ -26,7 +28,9 @@ st %>%
   head()
 
 st_sf <- st %>%
-  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>% 
+  # convert to projected coordinate system, state plan ny, feet
+  st_transform(2263)
 ```
 
 ```{r}
@@ -36,12 +40,18 @@ cp %>%
 
 cp_sf <- cp %>%
   filter(!is.na(longitude) & !is.na(latitude)) %>%
-  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>% 
+  # convert to projected coordinate system, state plan ny, feet
+  st_transform(2263)
 ```
 
 ```{r}
 # load oz data
-nyc_oz <- st_read("../00_data/nyc_oz.geojson")
+nyc_oz <- st_read("../00_data/nyc_oz.geojson") %>% 
+  # convert to boolean
+  mutate(DESIGNATED = if_else(DESIGNATED == "True", TRUE, FALSE)) %>% 
+  # convert to state plan coordinate system, feet
+  st_transform(2263)
 ```
 
 
@@ -51,16 +61,38 @@ nyc_oz %>%
   geom_sf(aes(fill = DESIGNATED)) +
   theme_void()
 ```
+```{r}
+# load buffer
+oz_buffer <- st_read("../00_data/oz_buffer.geojson") %>% 
+  mutate(buffer = TRUE) %>% 
+  select(buffer, geometry)
+
+oz_buffer %>%
+  ggplot() +
+  geom_sf() +
+  theme_void()
+
+oz_buffer %>% 
+  head()
+```
+
 
 
 ```{r}
 # spatial joins
 ar_oz <- ar_sf %>%
-  st_join(nyc_oz, left = FALSE)
+  st_join(nyc_oz, left = FALSE) %>% 
+  st_join(oz_buffer, left = TRUE) %>% 
+  mutate(buffer = if_else(is.na(buffer), FALSE, buffer))
 
 ar_oz %>%
   as.data.frame() %>%
   group_by(DESIGNATED) %>%
+  summarize(n = n())
+
+ar_oz %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED, buffer) %>%
   summarize(n = n())
 
 ar_oz %>%
@@ -69,7 +101,9 @@ ar_oz %>%
 
 ```{r}
 st_oz <- st_sf %>%
-  st_join(nyc_oz, left = FALSE)
+  st_join(nyc_oz, left = FALSE) %>% 
+  st_join(oz_buffer, left = TRUE) %>% 
+  mutate(buffer = if_else(is.na(buffer), FALSE, buffer))
 
 st_oz %>%
   as.data.frame() %>%
@@ -77,15 +111,27 @@ st_oz %>%
   summarize(n = n())
 
 st_oz %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED, buffer) %>%
+  summarize(n = n())
+
+st_oz %>%
   head()
 ```
 ```{r}
 cp_oz <- cp_sf %>%
-  st_join(nyc_oz, left = FALSE)
+  st_join(nyc_oz, left = FALSE)  %>% 
+  st_join(oz_buffer, left = TRUE) %>% 
+  mutate(buffer = if_else(is.na(buffer), FALSE, buffer))
 
 cp_oz %>%
   as.data.frame() %>%
   group_by(DESIGNATED) %>%
+  summarize(n = n())
+
+cp_oz  %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED, buffer) %>%
   summarize(n = n())
 
 cp_oz %>%

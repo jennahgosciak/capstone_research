@@ -1,0 +1,56 @@
+---
+title: "Descriptive Analysis of OZs using ACS Census Data"
+author: "Jennah Gosciak"
+date: "11-18-2022"
+output:
+  html_document:
+    df_print: paged
+---
+
+This notebook generates some initial descriptives of selected and eligible OZ tracts in NYC using data from the American Community Survey.
+
+```{r}
+library(tidyverse)
+library(tidycensus)
+library(magrittr)
+library(sf)
+library(wesanderson) # for colors :)
+library("lmtest")
+library("sandwich")
+library(readxl)
+```
+```{r}
+# load ozs for nyc
+oz <- st_read("../00_data/nyc_oz.geojson")
+
+oz %>%
+  filter(is.na(DESIGNATED)) %>%
+  nrow() %>%
+  equals(0) %>%
+  stopifnot()
+
+oz_proj <- oz %>%
+  # project to nys plane in feet
+  st_transform(2263)
+oz_proj
+
+oz_buffer <- oz_proj %>% 
+  filter(DESIGNATED == "True") %>% 
+  st_boundary() %>% 
+  st_buffer(dist = (264*2)) 
+
+# look at 5 examples
+oz_buffer %>% 
+  head(5) %>% 
+  ggplot() +
+  geom_sf(color = 'red') +
+  theme_void()
+
+oz_buffer %>% 
+  st_write("../00_data/oz_buffer.geojson", delete_dsn = TRUE)
+```
+
+
+
+
+

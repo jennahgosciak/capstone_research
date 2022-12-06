@@ -28,6 +28,7 @@ oz %>%
   nrow() %>%
   equals(0) %>%
   stopifnot()
+
 ```
 
 ```{r}
@@ -46,9 +47,16 @@ acs_nyc <- get_acs(
   year = 2020
 )
 
-acs_nyc_wide <- acs_nyc %>%
-  pivot_wider(id_cols = c("GEOID", "NAME"), names_from = "variable", values_from = "estimate") %>%
-  mutate(
+acs_nyc_bg <- get_acs(
+  geography = "block group", variables = acs_vars,
+  state = "NY", county = c("047", "085", "081", "061", "005"),
+  year = 2020
+)
+
+generate_acs_vars <- function(df) {
+  df %>% 
+    pivot_wider(id_cols = c("GEOID", "NAME"), names_from = "variable", values_from = "estimate") %>%
+    mutate(
     pct_white = white_population / population,
     minutes_commute_avg = minutes_commute / employed_population,
     pct_higher_ed = rowSums(select(., c(associate, bachelor, master, professional_school, doctoral)), na.rm = T) / population,
@@ -56,16 +64,32 @@ acs_nyc_wide <- acs_nyc %>%
     pct_native_hc_covered = native_born_hc_covered / native_born,
     pct_poverty = poverty / population
   )
+}
+
+# calculate at the tract level
+acs_nyc_wide <- acs_nyc %>% 
+  generate_acs_vars()
+
+acs_nyc_wide_bg <- acs_nyc_bg %>% 
+  generate_acs_vars()
 
 constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
+
 acs_nyc_wide %>%
+  head()
+
+acs_nyc_wide_bg %>% 
   head()
 ```
 ```{r}
 # merge to acs
 acs_oz <- oz %>%
-  left_join(acs_nyc_wide, by = "GEOID") %>%
-  filter(!(population < 5 | is.na(population)))
+  left_join(acs_nyc_wide, by = "GEOID")
+
+acs_oz_bg <- acs_nyc_wide_bg %>% 
+  rename(GEOID_bg = GEOID) %>% 
+  mutate(GEOID_tract = substr(GEOID_bg, 1, 11)) %>% 
+  left_join(oz, ., by = c("GEOID" = "GEOID_tract"))
 ```
 
 ```{r}
