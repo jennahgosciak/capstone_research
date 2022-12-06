@@ -3,7 +3,7 @@
 *.json
 *.geojson
 /00_data/
-/03_output/
+03_output/
 
 # History files
 .Rhistory

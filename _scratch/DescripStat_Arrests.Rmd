@@ -115,6 +115,7 @@ ar_oz %>%
   theme_classic()
 
 ```
+
 ```{r}
 
 #Looking at designated
@@ -173,16 +174,18 @@ unique(ar_oz_MisFel$ofns_desc)
 
 ar_oz <- ar_oz %>%   mutate(misdemeanor = ifelse(law_cat_cd == "M", 1, 0)) %>% 
   mutate(robbery = ifelse(ofns_desc == "ROBBERY", 1, 0)) %>% 
-  mutate(assault = ifelse(ofns_desc == "FELONY ASSAULT" | ofns_desc == "ASSAULT 3 & RELATED OFFENSES", 1, 0)) %>% 
+  mutate(assault = ifelse(ofns_desc %in% c("FELONY ASSAULT", "ASSAULT 3 & RELATED OFFENSES"), 1, 0)) %>% 
   mutate(burglary = ifelse(ofns_desc == "BURGLARY", 1, 0)) %>% 
   mutate(weapons = ifelse(ofns_desc == "DANGEROUS WEAPONS", 1, 0)) %>% 
-  mutate(drugs = ifelse(ofns_desc == "DANGEROUS DRUGS" | ofns_desc == "LOITERING FOR DRUG PURPOSES", 1, 0)) %>% 
+  mutate(drugs = ifelse(ofns_desc %in% c("DANGEROUS DRUGS", "LOITERING FOR DRUG PURPOSES"), 1, 0)) %>% 
   mutate(felony_other = ifelse(law_cat_cd == "F" & robbery == 0 & assault == 0 & burglary == 0 & weapons == 0, 1, 0)) %>% 
-  #mutate(property = ifelse(ofns_desc == "GRAND LARCENY" | ofns_desc == "PETIT LARCENY" | ofns_desc == "GRAND LARCENY OF MOTOR VEHICLE" | ofns_desc == "BURGLARY" | ofns_desc == "BURGLAR'S TOOLS" | ofns_desc == "POSSESSION OF STOLEN PROPERTY 5" | ofns_desc == "UNAUTHORIZED USE OF A VEHICLE 3 (UUV)" | ofns_desc == "OTHER OFFENSES RELATED TO THEFT" | ofns_desc == "POSSESSION OF STOLEN PROPERTY", 1, 0)) %>% 
-  #mutate(violent = ifelse(ofns_desc == "HOMICIDE-NEGLIGENT-VEHICLE" | ofns_desc == "HOMICIDE-NEGLIGENT,UNCLASSIFIED" | ofns_desc == "RAPE" | ofns_desc == "ROBBERY" | ofns_desc == "ARSON" | ofns_desc == "FELONY ASSAULT" | ofns_desc == "KIDNAPPING & RELATED OFFENSES" | ofns_desc == "MURDER & NON-NEGL. MANSLAUGHTER" | ofns_desc == "MURDER & NON-NEGL. MANSLAUGHTE" | ofns_desc == "ASSAULT 3 & RELATED OFFENSES", 1, 0))
-  mutate(propertyny = ifelse(ofns_desc == "GRAND LARCENY" | ofns_desc == "PETIT LARCENY" | ofns_desc == "GRAND LARCENY OF MOTOR VEHICLE" | ofns_desc == "BURGLARY", 1, 0)) %>% 
-  mutate(violentny = ifelse(ofns_desc == "RAPE" | ofns_desc == "ROBBERY" | ofns_desc == "FELONY ASSAULT" | ofns_desc == "MURDER & NON-NEGL. MANSLAUGHTER" | ofns_desc == "MURDER & NON-NEGL. MANSLAUGHTE", 1, 0))
-
+  mutate(property = ifelse( ofns_desc %in% c("GRAND LARCENY", "PETIT LARCENY", "GRAND LARCENY OF MOTOR VEHICLE", "BURGLARY", "BURGLAR'S TOOLS", "POSSESSION OF STOLEN PROPERTY 5", "UNAUTHORIZED USE OF A VEHICLE 3 (UUV)", "OTHER OFFENSES RELATED TO THEFT", "POSSESSION OF STOLEN PROPERTY"), 1, 0)) %>% 
+  mutate(violent = ifelse(ofns_desc %in% c("HOMICIDE-NEGLIGENT-VEHICLE", "HOMICIDE-NEGLIGENT,UNCLASSIFIED", "RAPE", "ROBBERY", "ARSON", "FELONY ASSAULT", "KIDNAPPING & RELATED OFFENSES", "MURDER & NON-NEGL. MANSLAUGHTER", "MURDER & NON-NEGL. MANSLAUGHTE", "ASSAULT 3 & RELATED OFFENSES"), 1, 0)) %>% 
+  mutate(propertyny = ifelse(ofns_desc %in% c("GRAND LARCENY", "PETIT LARCENY", "GRAND LARCENY OF MOTOR VEHICLE", "BURGLARY"), 1, 0)) %>% 
+  mutate(violentny = ifelse(ofns_desc %in% c("RAPE", "ROBBERY", "FELONY ASSAULT", "MURDER & NON-NEGL. MANSLAUGHTER", "MURDER & NON-NEGL. MANSLAUGHTE"), 1, 0))  %>% 
+  mutate(violent_ellen = ifelse(ofns_desc %in% c("RAPE", "ROBBERY", "FELONY ASSAULT", "MURDER & NON-NEGL. MANSLAUGHTER", "MURDER & NON-NEGL. MANSLAUGHTE", "HOMICIDE-NEGLIGENT-VEHICLE", "HOMICIDE-NEGLIGENT,UNCLASSIFIED"), 1, 0)) %>% 
+  mutate(property_ellen = ifelse(ofns_desc %in% c("ARSON", "BURGLARY", "GRAND LARCENY", "GRAND LARCENY OF MOTOR VEHICLE", "PETIT LARCENY","THEFT-FRAUD"), 1, 0))
+           
 ar_oz %>%
   filter(violentny==1) %>% 
   group_by(GEOID, arrest_month_yr, DESIGNATED) %>%
