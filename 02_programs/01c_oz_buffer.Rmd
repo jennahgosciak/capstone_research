@@ -34,9 +34,11 @@ oz_proj <- oz %>%
   st_transform(2263)
 oz_proj
 
-oz_buffer <- oz_proj %>% 
+oz_bound <- oz_proj %>% 
   filter(DESIGNATED == "True") %>% 
-  st_boundary() %>% 
+  st_boundary() 
+
+oz_buffer <- oz_bound %>% 
   st_buffer(dist = (264*2)) 
 
 # look at 5 examples
@@ -52,6 +54,9 @@ oz_buffer %>%
   geom_sf(color = 'red') +
   theme_void()
   
+oz_bound %>% 
+  st_union() %>% 
+  st_write("../00_data/oz_bound.geojson", delete_dsn = TRUE)
 
 oz_buffer %>% 
   st_union() %>% 
