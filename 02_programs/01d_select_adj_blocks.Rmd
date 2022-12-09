@@ -28,7 +28,9 @@ cb <- st_read("https://data.cityofnewyork.us/resource/twhy-dzjp.geojson?$limit=1
   st_transform(2263)
 
 cb_touches <- cb %>% 
+  # more narrow buffer
   st_intersects(oz_buffer, sparse = F)
+cb_touches
 
 cb_adj <- cb[cb_touches, ]
 cb_adj

@@ -106,6 +106,10 @@ acs_oz <- acs_oz %>%
 acs_oz %>%
   as.data.frame() %>%
   group_by(DESIGNATED) %>%
+  # create missing flag
+  # duplicate at the block group level
+  # summary statistics of missingness
+  # really only care about the ones that are close to the boundary
   summarize(across(population:pct_poverty, mean, na.rm = T)) %>%
   pivot_longer(cols = c(population:pct_poverty)) %>%
   mutate(

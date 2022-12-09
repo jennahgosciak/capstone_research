@@ -112,6 +112,26 @@ ar_oz %>%
 ```
 
 ```{r}
+ar_oz %>% 
+  mutate(distance_boundary = as.numeric(distance_boundary)) %>%
+  filter(!is.na(distance_boundary)) %>% 
+  filter(distance_boundary > 1 & distance_boundary <= 2)  %>% 
+  ggplot() +
+  geom_sf(color = 'blue', alpha = 0.01) +
+  geom_sf(data = oz_bound, color = 'red')
+
+ar_oz %>% 
+  mutate(distance_boundary = as.numeric(distance_boundary),
+         distance_boundary = round(distance_boundary, digits = -1)) %>% 
+  as.data.frame() %>% 
+  filter(DESIGNATED %in% c(TRUE, FALSE), distance_boundary < 1000) %>% 
+  filter(DESIGNATED == F) %>% 
+  group_by(distance_boundary, DESIGNATED) %>% 
+  summarize(n = n())
+```
+
+
+```{r}
 st_oz <- st_sf %>%
   st_join(nyc_oz, left = TRUE) %>% 
   st_join(cb, left = TRUE) %>% 

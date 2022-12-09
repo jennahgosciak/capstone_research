@@ -334,6 +334,16 @@ acs_oz_clean %>%
 ```{r}
 # histograms of crime
 ar_oz %>% 
+  filter(distance_boundary < 1000) %>% 
+  filter(year(arrest_date) > 2018) %>% 
+  mutate(distance_boundary = if_else(DESIGNATED == F, -1*distance_boundary, distance_boundary)) %>% 
+  ggplot() +
+  geom_histogram(aes(distance_boundary), bins=150) +
+  theme_classic()
+
+ar_oz %>% 
+  filter(distance_boundary < 1000) %>% 
+  filter(year(arrest_date) <= 2018) %>% 
   mutate(distance_boundary = if_else(DESIGNATED == F, -1*distance_boundary, distance_boundary)) %>% 
   ggplot() +
   geom_histogram(aes(distance_boundary), bins=150) +
