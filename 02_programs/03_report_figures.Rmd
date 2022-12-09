@@ -217,3 +217,97 @@ st_oz %>%
 ggsave("../03_output/avg_buffer_shootings.png", height = 3, width = 4.5)
 ```
 
+## Balance testing
+
+
+```{r}
+# do significance testing
+acs_oz_clean <- acs_oz %>%
+  as.data.frame() %>%
+  mutate(treatment = if_else(DESIGNATED == "True", 1, 0)) %>%
+  assertr::verify(!is.na(DESIGNATED))
+
+cb_adj_acs <- read_csv("../00_data/cb_adj_acs.csv") %>%
+  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>% 
+  filter(population > 0 & !is.na(population))
+cb_adj_acs
+
+test_baseline_significance <- function(outcome, print = FALSE,
+                                       data) {
+  print(outcome)
+  mod <- lm(paste0(outcome, " ~ treatment"), data = data)
+
+  if (print == TRUE) {
+    summary(mod) %>%
+      print()
+  }
+
+  vals <- coeftest(mod, vcov = vcovHC(mod, type = "HC0"))
+  print(vals)
+  int <- vals[1, 1]
+  treat_est <- vals[2, 1]
+  treat_se <- vals[2, 2]
+  treat_pval <- vals[2, 4]
+  asterisk <- case_when(
+    treat_pval < 0.01 ~ "***",
+    treat_pval < 0.05 ~ "**",
+    treat_pval < 0.1 ~ "*",
+    TRUE ~ NA_character_
+  )
+
+  if (str_detect(outcome, "pct")) {
+    treat_est <- treat_est * 100
+    int <- int * 100
+    treat_se <- treat_se * 100
+  }
+  data.frame(
+    "var" = outcome,
+    "mean_1" = round(int + treat_est, 2),
+    "mean_0" = round(int, 2),
+    "difference" = if_else(!is.na(asterisk), paste0(round(treat_est, 2), asterisk),
+      as.character(round(treat_est, 2))
+    ),
+    "se" = round(treat_se, 2),
+    "pval" = round(treat_pval, 4)
+  )
+}
+```
+```{r}
+diff_results_adj <- map_dfr(c(
+  names(acs_vars),
+  constructs
+), ~ test_baseline_significance(., data = cb_adj_acs %>% 
+                                  filter(DESIGNATED == TRUE | (DESIGNATED == F & LIC == T))))
+diff_results_adj
+
+cb_adj_acs %>% 
+  filter(DESIGNATED == TRUE | (DESIGNATED == F & LIC == T)) %>% 
+  nrow()
+```
+```{r}
+diff_results <- map_dfr(c(
+  names(acs_vars),
+  constructs
+), ~ test_baseline_significance(., data = acs_oz_clean))
+diff_results
+```
+
+```{r}
+diff_results_subsample <- map_dfr(c(
+  names(acs_vars),
+  constructs
+), ~ test_baseline_significance(.,
+  data = acs_oz_clean %>%
+    filter(DESIGNATED == "True" |
+      (DESIGNATED == "False" & LIC == "True"))
+))
+diff_results_subsample %>%
+  write_csv("../03_output/balance_tests.csv")
+
+acs_oz_clean %>%
+  filter(DESIGNATED == "True" |
+    (DESIGNATED == "False" & LIC == "True")) %>%
+  group_by(DESIGNATED) %>%
+  summarize(n = n())
+```
+
