@@ -221,17 +221,25 @@ ggsave("../03_output/avg_buffer_shootings.png", height = 3, width = 4.5)
 
 
 ```{r}
+# load covariate information
 # do significance testing
 acs_oz_clean <- acs_oz %>%
   as.data.frame() %>%
   mutate(treatment = if_else(DESIGNATED == "True", 1, 0)) %>%
   assertr::verify(!is.na(DESIGNATED))
 
-cb_adj_acs <- read_csv("../00_data/cb_adj_acs.csv") %>%
+cb_adj_acs_tract <- read_csv("../00_data/cb_adj_acs.csv") %>%
   mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>% 
   filter(population > 0 & !is.na(population))
-cb_adj_acs
+cb_adj_acs_tract
 
+cb_adj_acs_bg <- read_csv("../00_data/cb_adj_acs_bg.csv") %>%
+  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>% 
+  filter(population > 0 & !is.na(population))
+cb_adj_acs_bg
+```
+
+```{r}
 test_baseline_significance <- function(outcome, print = FALSE,
                                        data) {
   print(outcome)
@@ -273,22 +281,34 @@ test_baseline_significance <- function(outcome, print = FALSE,
 }
 ```
 ```{r}
+
+# adjacent tracts
 diff_results_adj <- map_dfr(c(
   names(acs_vars),
   constructs
 ), ~ test_baseline_significance(., data = cb_adj_acs %>% 
                                   filter(DESIGNATED == TRUE | (DESIGNATED == F & LIC == T))))
 diff_results_adj
-
-cb_adj_acs %>% 
-  filter(DESIGNATED == TRUE | (DESIGNATED == F & LIC == T)) %>% 
-  nrow()
 ```
+
+```{r}
+diff_results_adj_bg <- map_dfr(c("population", "white_population", "employed_population",
+                                 "pct_white", "pct_higher_ed"), ~ test_baseline_significance(., data = cb_adj_acs_bg %>% 
+                                  filter(DESIGNATED == TRUE | (DESIGNATED == F & LIC == T))))
+diff_results_adj_bg
+
+cb_adj_acs_bg %>% 
+  ggplot() +
+  geom_histogram(aes(pct_white, fill = factor(DESIGNATED), group= factor(DESIGNATED)), alpha=0.5) +
+  theme_classic() +
+  labs(fill = "Selected")
+```
+
 ```{r}
 diff_results <- map_dfr(c(
   names(acs_vars),
   constructs
-), ~ test_baseline_significance(., data = acs_oz_clean))
+), ~test_baseline_significance(., data = acs_oz_clean))
 diff_results
 ```
 
@@ -310,4 +330,14 @@ acs_oz_clean %>%
   group_by(DESIGNATED) %>%
   summarize(n = n())
 ```
+
+```{r}
+# histograms of crime
+ar_oz %>% 
+  mutate(distance_boundary = if_else(DESIGNATED == F, -1*distance_boundary, distance_boundary)) %>% 
+  ggplot() +
+  geom_histogram(aes(distance_boundary), bins=150) +
+  theme_classic()
+```
+
 
