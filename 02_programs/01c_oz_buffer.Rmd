@@ -35,7 +35,10 @@ oz_proj <- oz %>%
 oz_proj
 
 oz_bound <- oz_proj %>% 
-  filter(DESIGNATED == "True") %>% 
+  # we only want boundaries between selected and eligible tracts
+  # need to filter that
+  filter(DESIGNATED == "True") %>%
+  st_union() %>% 
   st_boundary() 
 
 oz_buffer <- oz_bound %>% 
@@ -46,6 +49,8 @@ oz_buffer %>%
   head(5) %>% 
   ggplot() +
   geom_sf(color = 'red') +
+  geom_sf(data = oz_bound %>% 
+            head(5), color='black') +
   theme_void()
 
 oz_buffer %>% 
