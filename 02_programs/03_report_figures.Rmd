@@ -10,6 +10,8 @@ library(tidyverse)
 library(sf)
 library(lubridate)
 library(zoo)
+library("lmtest")
+library("sandwich")
 ```
 
 # Generates figures for each report
@@ -217,15 +219,96 @@ st_oz %>%
 ggsave("../03_output/avg_buffer_shootings.png", height = 3, width = 4.5)
 ```
 
-## Balance testing
-
+## Descriptive stats and missing rates
 
 ```{r}
-# load covariate information
+acs_oz  <- read_csv("../00_data/acs_oz.csv")
+
+acs_oz_bg  <- read_csv("../00_data/acs_bg.csv")
+```
+
+```{r}
+acs_oz %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED) %>%
+  # create missing flag
+  # duplicate at the block group level
+  # summary statistics of missingness
+  # really only care about the ones that are close to the boundary
+  summarize(across(population:pct_poverty, mean, na.rm = T)) %>%
+  pivot_longer(cols = c(population:pct_poverty)) %>%
+  mutate(
+    value = round(value, 2),
+    designated_desc = if_else(DESIGNATED == TRUE, "designated", "eligible")
+  ) %>%
+  pivot_wider(id_cols = "name", names_from = "designated_desc", values_from = "value") %>% 
+  select(name, designated, eligible) %>% 
+  write_csv("../03_output/desc_means.csv", na="")
+
+acs_oz %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED) %>%
+  # create missing flag
+  # duplicate at the block group level
+  # summary statistics of missingness
+  # really only care about the ones that are close to the boundary
+  mutate(across(population:pct_poverty, ~if_else(is.na(.), 1, 0))) %>% 
+  summarize(across(population:pct_poverty, mean, na.rm = T)) %>%
+  pivot_longer(cols = c(population:pct_poverty)) %>%
+  mutate(
+    value = round(value, 2),
+    designated_desc = if_else(DESIGNATED == TRUE, "designated", "eligible")
+  ) %>%
+  pivot_wider(id_cols = "name", names_from = "designated_desc", values_from = "value") %>% 
+  select(name, designated, eligible) %>% 
+  write_csv("../03_output/missing_rates.csv", na="")
+```
+
+```{r}
+
+acs_bg %>% 
+  as.data.frame() %>%
+  group_by(DESIGNATED) %>%
+  # create missing flag
+  # duplicate at the block group level
+  # summary statistics of missingness
+  # really only care about the ones that are close to the boundary
+  summarize(across(population:pct_poverty, mean, na.rm = T)) %>%
+  pivot_longer(cols = c(population:pct_poverty)) %>%
+  mutate(
+    value = round(value, 2),
+    designated_desc = if_else(DESIGNATED == TRUE, "designated", "eligible")
+  ) %>%
+  pivot_wider(id_cols = "name", names_from = "designated_desc", values_from = "value") %>% 
+  select(name, designated, eligible) %>% 
+  write_csv("../03_output/desc_means_bg.csv", na="")
+
+acs_bg %>% 
+  as.data.frame() %>%
+  group_by(DESIGNATED) %>%
+  # create missing flag
+  # duplicate at the block group level
+  # summary statistics of missingness
+  # really only care about the ones that are close to the boundary
+  mutate(across(population:pct_poverty, ~if_else(is.na(.), 1, 0))) %>% 
+  summarize(across(population:pct_poverty, mean, na.rm = T)) %>%
+  pivot_longer(cols = c(population:pct_poverty)) %>%
+  mutate(
+    value = round(value, 2),
+    designated_desc = if_else(DESIGNATED == TRUE, "designated", "eligible")
+  ) %>%
+  pivot_wider(id_cols = "name", names_from = "designated_desc", values_from = "value") %>% 
+  select(name, designated, eligible) %>% 
+  write_csv("../03_output/missing_rates_bg.csv", na="")
+```
+
+## Balance testing
+
+```{r}
 # do significance testing
 acs_oz_clean <- acs_oz %>%
   as.data.frame() %>%
-  mutate(treatment = if_else(DESIGNATED == "True", 1, 0)) %>%
+  mutate(treatment = if_else(DESIGNATED == TRUE, 1, 0)) %>%
   assertr::verify(!is.na(DESIGNATED))
 
 cb_adj_acs_tract <- read_csv("../00_data/cb_adj_acs.csv") %>%
@@ -280,22 +363,38 @@ test_baseline_significance <- function(outcome, print = FALSE,
   )
 }
 ```
-```{r}
 
+```{r}
 # adjacent tracts
 diff_results_adj <- map_dfr(c(
   names(acs_vars),
   constructs
 ), ~ test_baseline_significance(., data = cb_adj_acs %>% 
                                   filter(DESIGNATED == TRUE | (DESIGNATED == F & LIC == T))))
-diff_results_adj
+
+diff_results_adj 
+diff_results_adj  %>%
+  write_csv("../03_output/balance_tests_adj_tracts.csv")
+```
+
+```{r}
+
+# adjacent tracts
+diff_results_adj_bg <- map_dfr(c(
+  c("population", "pct_white", "pct_higher_ed")
+), ~ test_baseline_significance(., data = cb_adj_acs_bg %>% 
+                                  filter(DESIGNATED == TRUE | (DESIGNATED == F & LIC == T))))
+
+diff_results_adj_bg 
+diff_results_adj_bg  %>%
+  write_csv("../03_output/balance_tests_adj_bg.csv")
 ```
 
 ```{r}
 diff_results_adj_bg <- map_dfr(c("population", "white_population", "employed_population",
                                  "pct_white", "pct_higher_ed"), ~ test_baseline_significance(., data = cb_adj_acs_bg %>% 
                                   filter(DESIGNATED == TRUE | (DESIGNATED == F & LIC == T))))
-diff_results_adj_bg
+diff_results_adj_bg 
 
 cb_adj_acs_bg %>% 
   ggplot() +
@@ -309,7 +408,8 @@ diff_results <- map_dfr(c(
   names(acs_vars),
   constructs
 ), ~test_baseline_significance(., data = acs_oz_clean))
-diff_results
+diff_results %>%
+  write_csv("../03_output/balance_tests_norestrictions.csv")
 ```
 
 ```{r}
@@ -318,36 +418,64 @@ diff_results_subsample <- map_dfr(c(
   constructs
 ), ~ test_baseline_significance(.,
   data = acs_oz_clean %>%
-    filter(DESIGNATED == "True" |
-      (DESIGNATED == "False" & LIC == "True"))
+    filter(DESIGNATED == T |
+      (DESIGNATED == F & LIC == T))
 ))
 diff_results_subsample %>%
   write_csv("../03_output/balance_tests.csv")
 
 acs_oz_clean %>%
-  filter(DESIGNATED == "True" |
-    (DESIGNATED == "False" & LIC == "True")) %>%
+    filter(DESIGNATED == T |
+      (DESIGNATED == F & LIC == T)) %>%
   group_by(DESIGNATED) %>%
   summarize(n = n())
+```
+```{r}
+ar_oz %>% 
+  filter(distance_boundary > 20000)
 ```
 
 ```{r}
 # histograms of crime
 ar_oz %>% 
-  filter(distance_boundary < 1000) %>% 
-  filter(year(arrest_date) > 2018) %>% 
+  filter(DESIGNATED == T | (DESIGNATED == F & LIC == T)) %>% 
+  mutate(post = if_else(arrest_date > mdy("04-20-2018"), "(1) Post", "(0) Pre")) %>% 
   mutate(distance_boundary = if_else(DESIGNATED == F, -1*distance_boundary, distance_boundary)) %>% 
   ggplot() +
-  geom_histogram(aes(distance_boundary), bins=150) +
-  theme_classic()
+  geom_histogram(aes(distance_boundary), bins=70) +
+  geom_vline(xintercept = 0, color = 'red') +
+  theme_classic() +
+  facet_wrap(~post, nrow = 1, scales = "free_y") +
+  labs(y = "Number of arrest incidents")
 
-ar_oz %>% 
-  filter(distance_boundary < 1000) %>% 
-  filter(year(arrest_date) <= 2018) %>% 
+ggsave("../03_output/distance_his_ar.png")
+
+st_oz %>% 
+  filter(DESIGNATED == T | (DESIGNATED == F & LIC == T)) %>% 
+  mutate(post = if_else(occur_date > mdy("04-20-2018"), "(1) Post", "(0) Pre")) %>% 
   mutate(distance_boundary = if_else(DESIGNATED == F, -1*distance_boundary, distance_boundary)) %>% 
   ggplot() +
-  geom_histogram(aes(distance_boundary), bins=150) +
-  theme_classic()
+  geom_histogram(aes(distance_boundary), bins=70) +
+  geom_vline(xintercept = 0, color = 'red') +
+  theme_classic() +
+  facet_wrap(~post, nrow = 1, scales = "free_y") +
+  labs(y = "Number of shooting incidents")
+
+ggsave("../03_output/distance_his_st.png")
+
+cp_oz %>% 
+  filter(DESIGNATED == T | (DESIGNATED == F & LIC == T)) %>% 
+  mutate(post = if_else(cmplnt_fr_dt > mdy("04-20-2018"), "(1) Post", "(0) Pre")) %>% 
+  mutate(distance_boundary = if_else(DESIGNATED == F, -1*distance_boundary, distance_boundary)) %>% 
+  ggplot() +
+  geom_histogram(aes(distance_boundary), bins=70) +
+  geom_vline(xintercept = 0, color = 'red') +
+  theme_classic() +
+  facet_wrap(~post, nrow = 1, scales = "free_y") +
+  labs(y = "Number of complaint incidents")
+
+ggsave("../03_output/distance_his_cp.png")
 ```
+
 
 

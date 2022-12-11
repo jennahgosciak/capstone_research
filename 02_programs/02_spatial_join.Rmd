@@ -12,6 +12,23 @@ library(lubridate)
 library(sf)
 ```
 ```{r}
+# load census tracts and census blocks
+cb <- st_read("https://data.cityofnewyork.us/resource/twhy-dzjp.geojson?$limit=1000000") %>%
+  st_transform(2263) %>% 
+  mutate(county_code = case_when(boro_code == 1 ~ "36061",
+                                 boro_code == 2 ~ "36005",
+                                 boro_code == 3 ~ "36047",
+                                 boro_code == 4 ~ "36081",
+                                 boro_code == 5 ~ "36085"),
+         GEOID = str_c(county_code, ct2010),
+         GEOID_b = str_c(county_code, ct2010, cb2010))
+
+# load acs data
+acs_oz <- read_csv("../00_data/acs_oz.csv")
+acs_bg <- read_csv("../00_data/acs_bg.csv")
+```
+
+```{r}
 # load the arrests
 ar <- read_csv("../00_data/arrests_2017_2020.csv")
 ar %>%
@@ -21,6 +38,8 @@ ar_sf <- ar %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>% 
   # convert to projected coordinate system, state plan ny, feet
   st_transform(2263)
+
+ar_sf
 ```
 ```{r}
 # load shootings
@@ -62,12 +81,6 @@ nyc_oz %>%
   geom_sf(aes(fill = DESIGNATED)) +
   theme_void()
 ```
-```{r}
-# load census blocks
-cb <- st_read("https://data.cityofnewyork.us/resource/twhy-dzjp.geojson?$limit=1000000") %>% 
-  st_transform(2263)
-cb
-```
 
 ```{r}
 # load buffer
@@ -93,14 +106,19 @@ oz_bound %>%
   theme_void()
 ```
 
+```{r}
+# load adj blocks
+cb_adj <- read_csv("../00_data/cb_adjacent.csv")
+```
 
 
 ```{r}
 # spatial joins
 ar_oz <- ar_sf %>%
-  st_join(nyc_oz, left = TRUE) %>% 
+  #st_join(nyc_oz, left = TRUE) %>% 
   st_join(cb, left = TRUE) %>% 
   st_join(oz_buffer, left = TRUE) %>% 
+  left_join(acs_oz, by = "GEOID") %>% 
   mutate(distance_boundary = st_distance(ar_sf, oz_bound))
 
 ar_oz %>%

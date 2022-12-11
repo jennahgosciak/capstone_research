@@ -81,6 +81,7 @@ acs_nyc_wide %>%
 acs_nyc_wide_bg %>% 
   head()
 ```
+
 ```{r}
 # merge to acs
 acs_oz <- oz %>%

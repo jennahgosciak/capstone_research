@@ -23,6 +23,8 @@ library(readxl)
 # load ozs for nyc
 oz <- st_read("../00_data/nyc_oz.geojson")
 
+boros <- st_read("https://data.cityofnewyork.us/resource/7t3b-ywvw.geojson")
+
 oz %>%
   filter(is.na(DESIGNATED)) %>%
   nrow() %>%
@@ -56,8 +58,11 @@ oz_buffer %>%
 oz_buffer %>% 
   st_union() %>% 
   ggplot() +
+  geom_sf(data = boros, color = "gray", fill = NA) +
   geom_sf(color = 'red') +
   theme_void()
+
+ggsave("../03_output/oz_buffer.png")
   
 oz_bound %>% 
   st_union() %>% 
