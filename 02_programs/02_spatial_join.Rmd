@@ -242,6 +242,22 @@ cp_oz %>%
 #            delete_dsn = TRUE)
 ```
 
+```{r}
+ar_oz <- read_csv("../00_data/ar_oz.csv")
 
+cp_oz <- read_csv("../00_data/cp_oz.csv")
 
+st_oz <- read_csv("../00_data/st_oz.csv")
+
+acs_oz_vars <- acs_oz %>% 
+  select(GEOID, population:pctover64)
+
+cp_oz_acs <- cp_oz %>% 
+    left_join(acs_oz_vars, by = "GEOID") %>% 
+    write_csv("../00_data/cp_oz_acs.csv")
+
+ar_oz_acs <- ar_oz  %>% 
+    write_csv("../00_data/ar_oz_acs.csv")
+
+```
 
