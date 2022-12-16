@@ -36,40 +36,40 @@ oz_proj <- oz %>%
   st_transform(2263)
 oz_proj
 
-oz_bound <- oz_proj %>% 
+oz_bound <- oz_proj %>%
   # we only want boundaries between selected and eligible tracts
   # need to filter that
   filter(DESIGNATED == "True") %>%
-  st_union() %>% 
-  st_boundary() 
+  st_union() %>%
+  st_boundary()
 
-oz_buffer <- oz_bound %>% 
-  st_buffer(dist = (264*2)) 
+oz_buffer <- oz_bound %>%
+  st_buffer(dist = (264 * 2))
 
 # look at 5 examples
-oz_buffer %>% 
-  head(5) %>% 
+oz_buffer %>%
+  head(5) %>%
   ggplot() +
-  geom_sf(color = 'red') +
-  geom_sf(data = oz_bound %>% 
-            head(5), color='black') +
+  geom_sf(color = "red") +
+  geom_sf(data = oz_bound %>%
+    head(5), color = "black") +
   theme_void()
 
-oz_buffer %>% 
-  st_union() %>% 
+oz_buffer %>%
+  st_union() %>%
   ggplot() +
   geom_sf(data = boros, color = "gray", fill = NA) +
-  geom_sf(color = 'red') +
+  geom_sf(color = "red") +
   theme_void()
 
 ggsave("../03_output/oz_buffer.png")
-  
-oz_bound %>% 
-  st_union() %>% 
+
+oz_bound %>%
+  st_union() %>%
   st_write("../00_data/oz_bound.geojson", delete_dsn = TRUE)
 
-oz_buffer %>% 
-  st_union() %>% 
+oz_buffer %>%
+  st_union() %>%
   st_write("../00_data/oz_buffer.geojson", delete_dsn = TRUE)
 ```
 
