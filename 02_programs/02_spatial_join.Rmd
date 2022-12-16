@@ -12,115 +12,223 @@ library(lubridate)
 library(sf)
 ```
 ```{r}
+# load census tracts and census blocks
+cb <- st_read("https://data.cityofnewyork.us/resource/twhy-dzjp.geojson?$limit=1000000") %>%
+  st_transform(2263) %>% 
+  mutate(county_code = case_when(boro_code == 1 ~ "36061",
+                                 boro_code == 2 ~ "36005",
+                                 boro_code == 3 ~ "36047",
+                                 boro_code == 4 ~ "36081",
+                                 boro_code == 5 ~ "36085"),
+         GEOID = str_c(county_code, ct2010),
+         GEOID_b = str_c(county_code, ct2010, cb2010))
+
+# load acs data
+acs_oz <- read_csv("../00_data/acs_oz.csv")
+acs_bg <- read_csv("../00_data/acs_bg.csv")
+```
+
+```{r}
 # load the arrests
-ar <- read_csv("../00_data/arrests_2017_2019.csv")
-ar %>% 
+ar <- read_csv("../00_data/arrests_2017_2020.csv")
+ar %>%
   head()
-ar_sf <- ar %>% 
-  st_as_sf(coords=c("longitude", "latitude"), crs = 4326)
+
+ar_sf <- ar %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>% 
+  # convert to projected coordinate system, state plan ny, feet
+  st_transform(2263)
+
+ar_sf
 ```
 ```{r}
 # load shootings
-st <- read_csv("../00_data/shootings_2017_2019.csv")
-st %>% 
+st <- read_csv("../00_data/shootings_2017_2020.csv")
+st %>%
   head()
 
-st_sf <- st %>% 
-  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+st_sf <- st %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>% 
+  # convert to projected coordinate system, state plan ny, feet
+  st_transform(2263)
 ```
 
 ```{r}
-cp <- read_csv("../00_data/complaints_2017_2019.csv")
-cp %>% 
+cp <- read_csv("../00_data/complaints_2017_2020.csv")
+cp %>%
   head()
 
-cp_sf <- cp %>% 
-  filter(!is.na(longitude) & !is.na(latitude)) %>% 
-  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+cp_sf <- cp %>%
+  filter(!is.na(longitude) & !is.na(latitude)) %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>% 
+  # convert to projected coordinate system, state plan ny, feet
+  st_transform(2263)
 ```
 
 ```{r}
 # load oz data
-nyc_oz <- st_read("../00_data/nyc_oz.geojson")
+nyc_oz <- st_read("../00_data/nyc_oz.geojson") %>% 
+  # convert to boolean
+  mutate(DESIGNATED = if_else(DESIGNATED == "True", TRUE, FALSE)) %>% 
+  # convert to state plan coordinate system, feet
+  st_transform(2263)
 ```
 
 
 ```{r}
-nyc_oz %>% 
+nyc_oz %>%
   ggplot() +
   geom_sf(aes(fill = DESIGNATED)) +
   theme_void()
 ```
 
+```{r}
+# load buffer
+oz_buffer <- st_read("../00_data/oz_buffer.geojson") %>% 
+  mutate(buffer = TRUE) %>% 
+  select(buffer, geometry)
+
+oz_buffer %>%
+  ggplot() +
+  geom_sf() +
+  theme_void()
+
+oz_buffer %>% 
+  head()
+
+oz_bound <- st_read("../00_data/oz_bound.geojson")
+oz_bound %>% 
+  head()
+
+oz_bound %>%
+  ggplot() +
+  geom_sf() +
+  theme_void()
+```
+
+```{r}
+# load adj blocks
+cb_adj <- read_csv("../00_data/cb_adjacent.csv")
+```
+
 
 ```{r}
 # spatial joins
-ar_oz <- ar_sf %>% 
-  st_join(nyc_oz, left=FALSE)
+ar_oz <- ar_sf %>%
+  #st_join(nyc_oz, left = TRUE) %>% 
+  st_join(cb, left = TRUE) %>% 
+  st_join(oz_buffer, left = TRUE) %>% 
+  left_join(acs_oz, by = "GEOID") %>% 
+  mutate(distance_boundary = st_distance(ar_sf, oz_bound))
 
-ar_oz %>% 
-  as.data.frame() %>% 
-  group_by(DESIGNATED) %>% 
+ar_oz %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED) %>%
   summarize(n = n())
 
-ar_oz %>% 
+ar_oz %>%
   head()
 ```
 
 ```{r}
-st_oz <- st_sf %>% 
-  st_join(nyc_oz, left = FALSE)
+ar_oz %>% 
+  mutate(distance_boundary = as.numeric(distance_boundary)) %>%
+  filter(!is.na(distance_boundary)) %>% 
+  filter(distance_boundary <= 1)  %>% 
+  ggplot() +
+  geom_sf(color = 'blue', alpha = 0.01) +
+  geom_sf(data = oz_bound, color = 'red')
 
-st_oz %>% 
+ar_oz %>% 
+  mutate(distance_boundary = as.numeric(distance_boundary),
+         distance_boundary = round(distance_boundary, digits = -1)) %>% 
   as.data.frame() %>% 
-  group_by(DESIGNATED) %>% 
+  filter(DESIGNATED %in% c(TRUE, FALSE), distance_boundary < 1000) %>% 
+  filter(DESIGNATED == F) %>% 
+  group_by(distance_boundary, DESIGNATED) %>% 
   summarize(n = n())
+```
 
-st_oz %>% 
+
+```{r}
+st_oz <- st_sf %>%
+  st_join(nyc_oz, left = TRUE) %>% 
+  st_join(cb, left = TRUE) %>% 
+  st_join(oz_buffer, left = TRUE) %>% 
+  mutate(distance_boundary = st_distance(st_sf, oz_bound))
+
+# checking no new obs introduced
+st_sf %>% 
+  as.data.frame() %>% 
+  nrow() %>% 
+  equals(
+    st_oz %>% 
+    as.data.frame() %>% 
+    nrow()
+  ) %>% 
+  stopifnot()
+
+st_oz %>%
   head()
 ```
 ```{r}
-cp_oz <- cp_sf %>% 
-  st_join(nyc_oz, left = FALSE)
+cp_oz <- cp_sf %>%
+  st_join(nyc_oz, left = TRUE)  %>% 
+  st_join(cb, left = TRUE) %>% 
+  st_join(oz_buffer, left = TRUE) %>% 
+  mutate(distance_boundary = st_distance(cp_sf, oz_bound))
 
-cp_oz %>% 
-  as.data.frame() %>% 
-  group_by(DESIGNATED) %>% 
+cp_oz %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED) %>%
   summarize(n = n())
 
-cp_oz %>% 
+cp_oz %>%
   head()
+
+cp_oz %>% 
+  filter(as.numeric(distance_boundary) <= (264*2)) %>% 
+  head(10000) %>% 
+  ggplot() +
+  geom_sf(data = oz_buffer) +
+  geom_sf(alpha=0.2, color = 'red') +
+  theme_void()
 ```
 
 
 ```{r}
 # write data
-ar_oz %>% 
-  as.data.frame() %>% 
+ar_oz %>%
+  as.data.frame() %>%
+  mutate(distance_boundary = as.numeric(distance_boundary)) %>% 
   write_csv("../00_data/ar_oz.csv")
 
-ar_oz %>% 
-  st_write("../00_data/ar_oz.geojson",
-           delete_dsn = TRUE)
+# ar_oz %>%
+#   st_write("../00_data/ar_oz.geojson",
+#     delete_dsn = TRUE
+#   )
 ```
 
 ```{r}
-st_oz %>% 
-  as.data.frame() %>% 
+st_oz %>%
+  as.data.frame() %>%
+  mutate(distance_boundary = as.numeric(distance_boundary)) %>%
   write_csv("../00_data/st_oz.csv")
 
-st_oz %>% 
+st_oz %>%
   st_write("../00_data/st_oz.geojson",
-           delete_dsn = TRUE)
+    delete_dsn = TRUE
+  )
 ```
 
 ```{r}
-cp_oz %>% 
-  as.data.frame() %>% 
+cp_oz %>%
+  as.data.frame() %>%
+  mutate(distance_boundary = as.numeric(distance_boundary)) %>%
   write_csv("../00_data/cp_oz.csv")
 
-# cp_oz %>% 
-#   select(-c(cmplnt_fr_tm, cmplnt_to_tm)) %>% 
+# cp_oz %>%
+#   select(-c(cmplnt_fr_tm, cmplnt_to_tm)) %>%
 #   st_write("../00_data/cp_oz.geojson",
 #            delete_dsn = TRUE)
 ```
