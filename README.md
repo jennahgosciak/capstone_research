@@ -29,5 +29,5 @@ The Project Team:
   - Code for data cleaning and analysis
 - 03_output/
   - Plots and table output
-- _scratch
+- _scratch/
   - Exploratory work outside the cleaning and analysis pipeline
