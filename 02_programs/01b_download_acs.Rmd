@@ -79,6 +79,7 @@ urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
 
 acs_oz <- acs_oz %>%
   left_join(urban, by = c("GEOID"))
+
 ```
 
 ```{r}
