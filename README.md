@@ -1,6 +1,6 @@
 # 2022-2023 Capstone Project (Team 2)
 
-This repository holds all the code used in developing Team 2's Capstone project for the 2022-2023 academic year
+This repository holds all the code used in developing Team 2's Capstone project for the 2022-2023 academic year.
 
 The Project Team:
 - Adelaide Currin
