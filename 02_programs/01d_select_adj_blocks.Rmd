@@ -37,7 +37,7 @@ cb_adj <- cb[cb_touches, ]
 cb_adj
 
 cb_adj %>% 
-  st_write("../00_data/cb_adjacent.geojson")
+  st_write("../00_data/cb_adjacent.geojson", delete_dsn = T)
 
 cb_adj %>% 
   as.data.frame() %>% 
