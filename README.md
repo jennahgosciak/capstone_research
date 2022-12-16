@@ -20,7 +20,7 @@ The Project Team:
 
 **Proposed methods:** regression discontinuity with a geographic boundary, difference-in-differences
 
-Folder structure:
+**Folder structure:**
 - 00_data/
   - Folder should be created locally to store all relevant data files
 - 01_input/
