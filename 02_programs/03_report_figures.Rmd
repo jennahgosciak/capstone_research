@@ -25,6 +25,9 @@ ar_oz <- read_csv("../00_data/ar_oz.csv")
 cp_oz <- read_csv("../00_data/cp_oz.csv")
 
 st_oz <- read_csv("../00_data/st_oz.csv")
+
+constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg", "SE_Flag", "dec_score")
+
 ```
 
 ```{r}

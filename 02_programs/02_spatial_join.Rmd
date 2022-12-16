@@ -159,17 +159,18 @@ ar_oz %>%
 
 ```{r}
 st_oz <- st_sf %>%
-  st_join(nyc_oz, left = TRUE) %>%
-  st_join(cb %>%
-    select(-GEOID), left = TRUE) %>%
+  #st_join(nyc_oz, left = TRUE) %>%
+  st_join(cb, left = TRUE) %>%
   st_join(oz_buffer, left = TRUE) %>%
+  left_join(acs_oz %>%
+    mutate(GEOID = as.character(GEOID)), by = "GEOID") %>%
   mutate(distance_boundary = st_distance(st_sf, oz_bound))
 
 # checking no new obs introduced
 st_sf %>%
   as.data.frame() %>%
   nrow() %>%
-  equals(
+  magrittr::equals(
     st_oz %>%
       as.data.frame() %>%
       nrow()
@@ -181,10 +182,11 @@ st_oz %>%
 ```
 ```{r}
 cp_oz <- cp_sf %>%
-  st_join(nyc_oz, left = TRUE) %>%
-  st_join(cb %>%
-    select(-GEOID), left = TRUE) %>%
+  #st_join(nyc_oz, left = TRUE) %>%
+  st_join(cb, left = TRUE) %>%
   st_join(oz_buffer, left = TRUE) %>%
+  left_join(acs_oz %>%
+    mutate(GEOID = as.character(GEOID)), by = "GEOID") %>%
   mutate(distance_boundary = st_distance(cp_sf, oz_bound))
 
 cp_oz %>%
