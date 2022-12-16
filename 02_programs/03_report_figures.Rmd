@@ -1,0 +1,253 @@
+---
+title: "Report Figures"
+author: "Adelaide Currin, Haowei Wang, Jennah Gosciak, Yiping Zuo"
+date: "2022-12-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(sf)
+library(lubridate)
+library(zoo)
+```
+
+# Generates figures for each report
+
+* We will update this as the report figures change
+
+```{r, message = F}
+# download data
+ar_oz <- read_csv("../00_data/ar_oz.csv")
+
+cp_oz <- read_csv("../00_data/cp_oz.csv")
+
+st_oz <- read_csv("../00_data/st_oz.csv")
+```
+
+```{r}
+# create month, date aggregation
+ar_oz <- ar_oz %>%
+  mutate(arrest_month_yr = as.Date(
+    str_c(month(arrest_date), 1, year(arrest_date), sep = "-"),
+    "%m-%d-%Y"
+  )) %>%
+  mutate(year = year(arrest_month_yr))
+
+cp_oz <- cp_oz %>%
+  mutate(cp_month_yr = as.Date(
+    str_c(month(cmplnt_fr_dt), 1, year(cmplnt_fr_dt), sep = "-"),
+    "%m-%d-%Y"
+  )) %>%
+  mutate(year = year(cp_month_yr))
+
+st_oz <- st_oz %>%
+  mutate(
+    quarter = case_when(
+      month(occur_date) <= 3 ~ 1,
+      month(occur_date) <= 6 ~ 2,
+      month(occur_date) <= 9 ~ 3,
+      month(occur_date) <= 12 ~ 4
+    ),
+    st_month_yr = as.Date(
+      str_c(month(occur_date), 1, year(occur_date), sep = "-"),
+      "%m-%d-%Y"
+    ),
+    st_qrtr_yr = as.yearqtr(occur_date, format = "%Y-Q%q")
+  ) %>%
+  mutate(year = year(st_month_yr))
+```
+
+
+```{r}
+# average crime incidents by Census tract
+ar_oz %>%
+  group_by(GEOID, DESIGNATED) %>%
+  summarize(n = n()) %>%
+  group_by(DESIGNATED) %>%
+  summarize(avg = mean(n))
+
+cp_oz %>%
+  group_by(GEOID, DESIGNATED) %>%
+  summarize(n = n()) %>%
+  group_by(DESIGNATED) %>%
+  summarize(avg = mean(n))
+
+st_oz %>%
+  group_by(GEOID, DESIGNATED) %>%
+  summarize(n = n()) %>%
+  group_by(DESIGNATED) %>%
+  summarize(avg = mean(n))
+```
+
+
+```{r}
+# average arrests by Census tract over time
+ar_oz %>%
+  group_by(GEOID, arrest_month_yr, DESIGNATED) %>%
+  summarize(n = n()) %>%
+  group_by(arrest_month_yr, DESIGNATED) %>%
+  summarize(avg = mean(n)) %>%
+  ggplot() +
+  geom_line(aes(x = arrest_month_yr, y = avg, color = if_else(DESIGNATED == TRUE,
+    "Selected", "Eligible"
+  ))) +
+  labs(
+    x = "Month/year", y = "Number of arrests",
+    title = "Average number of arrests per month\nand by census tract",
+    color = "Designation Status"
+  ) +
+  theme_classic()
+
+ggsave("../03_output/avg_arrests.png", height = 3, width = 4.5)
+
+# average violent crime arrests by Census tract over time
+ar_oz %>%
+  filter(violent_ellen==1) %>% 
+  group_by(GEOID, arrest_month_yr, DESIGNATED, ) %>%
+  summarize(n = n()) %>%
+  group_by(arrest_month_yr, DESIGNATED) %>%
+  summarize(avg = mean(n)) %>%
+  ggplot() +
+  geom_line(aes(x = arrest_month_yr, y = avg, color = if_else(DESIGNATED == TRUE,
+    "Selected", "Eligible"
+  ))) +
+  labs(
+    x = "Month/year", y = "Number of arrests",
+    title = "Average number of violent crime arrests per month\nand by census tract",
+    color = "Designation Status"
+  ) +
+  theme_classic()
+
+ggsave("../03_output/avg_arrests_violent.png", height = 3, width = 4.5)
+
+# average property crime arrests by Census tract over time
+ar_oz %>%
+  filter(property_ellen==1) %>% 
+  group_by(GEOID, arrest_month_yr, DESIGNATED, ) %>%
+  summarize(n = n()) %>%
+  group_by(arrest_month_yr, DESIGNATED) %>%
+  summarize(avg = mean(n)) %>%
+  ggplot() +
+  geom_line(aes(x = arrest_month_yr, y = avg, color = if_else(DESIGNATED == TRUE,
+    "Selected", "Eligible"
+  ))) +
+  labs(
+    x = "Month/year", y = "Number of arrests",
+    title = "Average number of property crime arrests per month\nand by census tract",
+    color = "Designation Status"
+  ) +
+  theme_classic()
+
+ggsave("../03_output/avg_arrests_prop.png", height = 3, width = 4.5)
+
+```
+
+```{r}
+# average complaints by Census tract over time
+cp_oz %>%
+  group_by(GEOID, cp_month_yr, DESIGNATED) %>%
+  summarize(n = n()) %>%
+  group_by(cp_month_yr, DESIGNATED) %>%
+  summarize(avg = mean(n)) %>%
+  ggplot() +
+  geom_line(aes(x = cp_month_yr, y = avg, color = if_else(DESIGNATED == TRUE,
+    "Selected", "Eligible"
+  ))) +
+  labs(
+    x = "Month/year", y = "Number of complaints",
+    title = "Average number of complaints per month\nand by census tract",
+    color = "Designation Status"
+  ) +
+  theme_classic()
+
+ggsave("../03_output/avg_complaints.png", height = 3, width = 4.5)
+
+# average violent complaints by Census tract over time
+cp_oz %>%
+  filter(violent_ellen==1) %>% 
+  group_by(GEOID, cp_month_yr, DESIGNATED) %>%
+  summarize(n = n()) %>%
+  group_by(cp_month_yr, DESIGNATED) %>%
+  summarize(avg = mean(n)) %>%
+  ggplot() +
+  geom_line(aes(x = cp_month_yr, y = avg, color = if_else(DESIGNATED == TRUE,
+    "Selected", "Eligible"
+  ))) +
+  labs(
+    x = "Month/year", y = "Number of complaints",
+    title = "Average number of violent crime complaints per month\nand by census tract",
+    color = "Designation Status"
+  ) +
+  theme_classic()
+
+ggsave("../03_output/avg_complainst_violent.png", height = 3, width = 4.5)
+
+# average propoerty complaints by Census tract over time
+cp_oz %>%
+  filter(property_ellen==1) %>% 
+  group_by(GEOID, cp_month_yr, DESIGNATED) %>%
+  summarize(n = n()) %>%
+  group_by(cp_month_yr, DESIGNATED) %>%
+  summarize(avg = mean(n)) %>%
+  ggplot() +
+  geom_line(aes(x = cp_month_yr, y = avg, color = if_else(DESIGNATED == TRUE,
+    "Selected", "Eligible"
+  ))) +
+  labs(
+    x = "Month/year", y = "Number of complaints",
+    title = "Average number of property crime complaints per month\nand by census tract",
+    color = "Designation Status"
+  ) +
+  theme_classic()
+
+ggsave("../03_output/avg_complaints_prop.png", height = 3, width = 4.5)
+
+
+
+```
+
+```{r}
+# average shootings by Census tract over time
+st_oz %>%
+  group_by(GEOID, st_month_yr, DESIGNATED) %>%
+  summarize(n = n()) %>%
+  group_by(st_month_yr, DESIGNATED) %>%
+  summarize(avg = mean(n)) %>%
+  ggplot() +
+  geom_line(aes(x = st_month_yr, y = avg, color = if_else(DESIGNATED == TRUE,
+    "Selected", "Eligible"
+  ))) +
+  labs(
+    x = "Month/year", y = "Number of shootings",
+    title = "Average number of shootings per month\nand by census tract",
+    color = "Designation Status"
+  ) +
+  theme_classic()
+
+ggsave("../03_output/avg_shootings.png", height = 3, width = 4.5)
+
+st_oz %>%
+  group_by(GEOID, st_qrtr_yr, DESIGNATED) %>%
+  summarize(n = n()) %>%
+  group_by(st_qrtr_yr, DESIGNATED) %>%
+  summarize(avg = mean(n)) %>%
+  ggplot() +
+  geom_line(aes(x = st_qrtr_yr, y = avg, color = if_else(DESIGNATED == TRUE,
+    "Selected", "Eligible"
+  ))) +
+  labs(
+    x = "Month/year", y = "Number of shootings",
+    title = "Average number of shootings per month\nand by census tract",
+    color = "Designation Status"
+  ) +
+  theme_classic() +
+  scale_x_yearqtr(format = "%Y-Q%q")
+```
+
+```{r}
+#attempt at adjusted differences
+
+lmviolentarrest <- ar_oz %>% 
+  lm(violent_ellen )
+
