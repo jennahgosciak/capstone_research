@@ -48,7 +48,7 @@ ar <- ar %>%   mutate(misdemeanor = ifelse(law_cat_cd == "M", 1, 0)) %>%
   mutate(property_ellen = ifelse(ofns_desc %in% c("ARSON", "BURGLARY", "GRAND LARCENY", "GRAND LARCENY OF MOTOR VEHICLE", "PETIT LARCENY","THEFT-FRAUD"), 1, 0))
 
 ar %>%
-  write_csv("../00_data/arrests_2017_2019.csv", na = "")
+  write_csv("../00_data/arrests_2017_2020.csv", na = "")
 ```
 
 
