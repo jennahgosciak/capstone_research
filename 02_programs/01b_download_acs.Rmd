@@ -28,6 +28,7 @@ oz %>%
   nrow() %>%
   equals(0) %>%
   stopifnot()
+
 ```
 
 ```{r}
@@ -46,9 +47,16 @@ acs_nyc <- get_acs(
   year = 2020
 )
 
-acs_nyc_wide <- acs_nyc %>%
-  pivot_wider(id_cols = c("GEOID", "NAME"), names_from = "variable", values_from = "estimate") %>%
-  mutate(
+acs_nyc_bg <- get_acs(
+  geography = "block group", variables = acs_vars,
+  state = "NY", county = c("047", "085", "081", "061", "005"),
+  year = 2020
+)
+
+generate_acs_vars <- function(df) {
+  df %>% 
+    pivot_wider(id_cols = c("GEOID", "NAME"), names_from = "variable", values_from = "estimate") %>%
+    mutate(
     pct_white = white_population / population,
     minutes_commute_avg = minutes_commute / employed_population,
     pct_higher_ed = rowSums(select(., c(associate, bachelor, master, professional_school, doctoral)), na.rm = T) / population,
@@ -56,16 +64,33 @@ acs_nyc_wide <- acs_nyc %>%
     pct_native_hc_covered = native_born_hc_covered / native_born,
     pct_poverty = poverty / population
   )
+}
+
+# calculate at the tract level
+acs_nyc_wide <- acs_nyc %>% 
+  generate_acs_vars()
+
+acs_nyc_wide_bg <- acs_nyc_bg %>% 
+  generate_acs_vars()
 
 constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
+
 acs_nyc_wide %>%
   head()
+
+acs_nyc_wide_bg %>% 
+  head()
 ```
+
 ```{r}
 # merge to acs
 acs_oz <- oz %>%
-  left_join(acs_nyc_wide, by = "GEOID") %>%
-  filter(!(population < 5 | is.na(population)))
+  left_join(acs_nyc_wide, by = "GEOID")
+
+acs_oz_bg <- acs_nyc_wide_bg %>% 
+  rename(GEOID_bg = GEOID) %>% 
+  mutate(GEOID_tract = substr(GEOID_bg, 1, 11)) %>% 
+  left_join(oz, ., by = c("GEOID" = "GEOID_tract"))
 ```
 
 ```{r}
@@ -82,6 +107,10 @@ acs_oz <- acs_oz %>%
 acs_oz %>%
   as.data.frame() %>%
   group_by(DESIGNATED) %>%
+  # create missing flag
+  # duplicate at the block group level
+  # summary statistics of missingness
+  # really only care about the ones that are close to the boundary
   summarize(across(population:pct_poverty, mean, na.rm = T)) %>%
   pivot_longer(cols = c(population:pct_poverty)) %>%
   mutate(
@@ -90,77 +119,16 @@ acs_oz %>%
   ) %>%
   pivot_wider(id_cols = "name", names_from = "designated_desc", values_from = "value")
 ```
+
 ```{r}
-# do significance testing
-acs_oz_clean <- acs_oz %>%
-  as.data.frame() %>%
-  mutate(treatment = if_else(DESIGNATED == "True", 1, 0)) %>%
-  assertr::verify(!is.na(DESIGNATED))
+acs_oz %>% 
+  write_csv("../00_data/acs_oz.csv")
 
-test_baseline_significance <- function(outcome, print = FALSE,
-                                       data = acs_oz_clean) {
-  mod <- lm(paste0(outcome, " ~ treatment"), data = data)
-
-  if (print == TRUE) {
-    summary(mod) %>%
-      print()
-  }
-
-  vals <- coeftest(mod, vcov = vcovHC(mod, type = "HC0"))
-  print(vals)
-  int <- vals[1, 1]
-  treat_est <- vals[2, 1]
-  treat_se <- vals[2, 2]
-  treat_pval <- vals[2, 4]
-  asterisk <- case_when(
-    treat_pval < 0.01 ~ "***",
-    treat_pval < 0.05 ~ "**",
-    treat_pval < 0.1 ~ "*",
-    TRUE ~ NA_character_
-  )
-
-  if (str_detect(outcome, "pct")) {
-    treat_est <- treat_est * 100
-    int <- int * 100
-    treat_se <- treat_se * 100
-  }
-  data.frame(
-    "var" = outcome,
-    "mean_1" = round(int + treat_est, 2),
-    "mean_0" = round(int, 2),
-    "difference" = if_else(!is.na(asterisk), paste0(round(treat_est, 2), asterisk),
-      as.character(round(treat_est, 2))
-    ),
-    "se" = round(treat_se, 2),
-    "pval" = round(treat_pval, 4)
-  )
-}
+acs_oz_bg %>% 
+  write_csv("../00_data/acs_bg.csv")
 ```
-```{r}
-diff_results <- map_dfr(c(
-  names(acs_vars),
-  constructs
-), ~ test_baseline_significance(.))
-diff_results
-```
-```{r}
-diff_results_subsample <- map_dfr(c(
-  names(acs_vars),
-  constructs
-), ~ test_baseline_significance(.,
-  data = acs_oz_clean %>%
-    filter(DESIGNATED == "True" |
-      (DESIGNATED == "False" & LIC == "True"))
-))
-diff_results_subsample %>%
-  write_csv("../03_output/balance_tests.csv")
 
-acs_oz_clean %>%
-  filter(DESIGNATED == "True" |
-    (DESIGNATED == "False" & LIC == "True")) %>%
-  group_by(DESIGNATED) %>%
-  summarize(n = n())
-```
+
 
 
 
