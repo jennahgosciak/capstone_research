@@ -4,6 +4,7 @@
 *.geojson
 /00_data/
 03_output/
+/04_qgis/
 
 # History files
 .Rhistory
