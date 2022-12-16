@@ -31,4 +31,4 @@ The Project Team:
   - [02_spatial_join.Rmd](02_programs/02_spatial_join.Rmd): joins files together and performs a spatial join to identify the relevant Census block and tract ID numbers.
   - [03_report_figures.Rmd](02_programs/03_report_figures.Rmd): generates all report figures and tables to be included in our final write-up.
 - 03_output: plots and table output
-- \_scratch: Exploratory work outside the cleaning and analysis pipeline
+- \_scratch: exploratory work outside the cleaning and analysis pipeline
