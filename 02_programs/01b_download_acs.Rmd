@@ -1,0 +1,171 @@
+---
+title: "Descriptive Analysis of OZs using ACS Census Data"
+author: "Jennah Gosciak"
+date: "11-18-2022"
+output:
+  html_document:
+    df_print: paged
+---
+
+This notebook generates some initial descriptives of selected and eligible OZ tracts in NYC using data from the American Community Survey.
+
+```{r}
+library(tidyverse)
+library(tidycensus)
+library(magrittr)
+library(sf)
+library(wesanderson) # for colors :)
+library("lmtest")
+library("sandwich")
+library(readxl)
+```
+```{r}
+# load ozs for nyc
+oz <- st_read("../00_data/nyc_oz.geojson")
+
+oz %>%
+  filter(is.na(DESIGNATED)) %>%
+  nrow() %>%
+  equals(0) %>%
+  stopifnot()
+```
+
+```{r}
+# load varlist
+acs_varlist <- readxl::read_excel("../00_data/acs_varlist.xlsx") %>%
+  filter(include == 1)
+acs_varlist
+
+acs_vars <- acs_varlist$variable
+names(acs_vars) <- acs_varlist$description
+
+# loading acs data
+acs_nyc <- get_acs(
+  geography = "tract", variables = acs_vars,
+  state = "NY", county = c("047", "085", "081", "061", "005"),
+  year = 2020
+)
+
+acs_nyc_wide <- acs_nyc %>%
+  pivot_wider(id_cols = c("GEOID", "NAME"), names_from = "variable", values_from = "estimate") %>%
+  mutate(
+    pct_white = white_population / population,
+    minutes_commute_avg = minutes_commute / employed_population,
+    pct_higher_ed = rowSums(select(., c(associate, bachelor, master, professional_school, doctoral)), na.rm = T) / population,
+    pct_rent = renter_occupied / total_housing,
+    pct_native_hc_covered = native_born_hc_covered / native_born,
+    pct_poverty = poverty / population
+  )
+
+constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
+acs_nyc_wide %>%
+  head()
+```
+```{r}
+# merge to acs
+acs_oz <- oz %>%
+  left_join(acs_nyc_wide, by = "GEOID") %>%
+  filter(!(population < 5 | is.na(population)))
+```
+
+```{r}
+# Load Urban
+urban <- read_excel("../00_data/urbaninstitute_tractlevelozanalysis_update01142021.xlsx") %>%
+  select(geoid, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64) %>%
+  rename(GEOID = geoid) %>% 
+  mutate(SE_Flag = replace_na(SE_Flag, 0))
+
+urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
+
+acs_oz <- acs_oz %>%
+  left_join(urban, by = c("GEOID"))
+```
+
+```{r}
+acs_oz %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED) %>%
+  summarize(across(population:pctover64, mean, na.rm = T)) %>%
+  pivot_longer(cols = c(population:pctover64)) %>%
+  mutate(
+    value = round(value, 2),
+    designated_desc = if_else(DESIGNATED == "True", "designated", "eligible")
+  ) %>%
+  pivot_wider(id_cols = "name", names_from = "designated_desc", values_from = "value")
+```
+```{r}
+# do significance testing
+acs_oz_clean <- acs_oz %>%
+  as.data.frame() %>%
+  mutate(treatment = if_else(DESIGNATED == "True", 1, 0)) %>%
+  assertr::verify(!is.na(DESIGNATED))
+
+test_baseline_significance <- function(outcome, print = FALSE,
+                                       data = acs_oz_clean) {
+  mod <- lm(paste0(outcome, " ~ treatment"), data = data)
+
+  if (print == TRUE) {
+    summary(mod) %>%
+      print()
+  }
+
+  vals <- coeftest(mod, vcov = vcovHC(mod, type = "HC0"))
+  print(vals)
+  int <- vals[1, 1]
+  treat_est <- vals[2, 1]
+  treat_se <- vals[2, 2]
+  treat_pval <- vals[2, 4]
+  asterisk <- case_when(
+    treat_pval < 0.01 ~ "***",
+    treat_pval < 0.05 ~ "**",
+    treat_pval < 0.1 ~ "*",
+    TRUE ~ NA_character_
+  )
+
+  if (str_detect(outcome, "pct")) {
+    treat_est <- treat_est * 100
+    int <- int * 100
+    treat_se <- treat_se * 100
+  }
+  data.frame(
+    "var" = outcome,
+    "mean_1" = round(int + treat_est, 2),
+    "mean_0" = round(int, 2),
+    "difference" = if_else(!is.na(asterisk), paste0(round(treat_est, 2), asterisk),
+      as.character(round(treat_est, 2))
+    ),
+    "se" = round(treat_se, 2),
+    "pval" = round(treat_pval, 4)
+  )
+}
+```
+```{r}
+diff_results <- map_dfr(c(
+  names(acs_vars),
+  constructs, urbanvars
+), ~ test_baseline_significance(.))
+diff_results
+```
+```{r}
+diff_results_subsample <- map_dfr(c(
+  names(acs_vars),
+  constructs, urbanvars
+), ~ test_baseline_significance(.,
+  data = acs_oz_clean %>%
+    filter(DESIGNATED == "True" |
+      (DESIGNATED == "False" & LIC == "True"))
+))
+diff_results_subsample %>%
+  write_csv("../03_output/balance_tests.csv")
+
+acs_oz_clean %>%
+  filter(DESIGNATED == "True" |
+    (DESIGNATED == "False" & LIC == "True")) %>%
+  group_by(DESIGNATED) %>%
+  summarize(n = n())
+```
+
+
+
+
+
