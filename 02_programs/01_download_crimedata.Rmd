@@ -23,11 +23,11 @@ ar
 ar %>% 
   summarize(across(arrest_date, .fns = lst(min, max)))
 
-<<<<<<< Updated upstream
 ar %>% 
   write_csv("../00_data/arrests_2017_2020.csv", na="")
 ```
-=======
+
+```{r}
 #Breaking arrests into categories (felonies and misdemeanor). Robbery, assault, burglary, weapons, misdemeanor offenses (e.g., criminal mischief, fraud, gambling, loitering, petty theft, and larceny), other felonies (e.g., escape 3 and forgery), drugs (e.g., dangerous drugs), property (e.g., grand larceny, burglary, and burglary tools), and violent felonies (e.g., homicide, rape, robbery, arson, felony assault, and kidnapping). Then also https://www.criminaljustice.ny.gov/crimnet/ojsa/stats.htm
 
 ar <-ar %>% filter(law_cat_cd == "M" | law_cat_cd == "F")
@@ -47,11 +47,10 @@ ar <- ar %>%   mutate(misdemeanor = ifelse(law_cat_cd == "M", 1, 0)) %>%
   mutate(property_ellen = ifelse(ofns_desc %in% c("ARSON", "BURGLARY", "GRAND LARCENY", "GRAND LARCENY OF MOTOR VEHICLE", "PETIT LARCENY","THEFT-FRAUD"), 1, 0))
 
 ar %>%
-  write_csv("../00_data/arrests_2017_2020.csv", na = "")
+  write_csv("../00_data/arrests_2017_2019.csv", na = "")
 ```
 
 
->>>>>>> Stashed changes
 ```{r}
 # average arrests per day
 ar %>% 
@@ -78,7 +77,7 @@ st %>%
   summarize(across(occur_date, .fns = lst(min, max)))
 
 st %>% 
-  write_csv("../00_data/shootings_2017_2020.csv", na="")
+  write_csv("../00_data/shootings_2017_2019.csv", na="")
 ```
 
 # Load complaints data
@@ -90,10 +89,6 @@ cp
 cp %>% 
   summarize(across(cmplnt_fr_dt, .fns = lst(min, max)))
 
-<<<<<<< Updated upstream
-cp %>% 
-  write_csv("../00_data/complaints_2017_2020.csv", na="")
-=======
 cp <-cp %>% filter(law_cat_cd == "FELONY" | law_cat_cd == "MISDEMEANOR")
 unique(cp$ofns_desc) 
 
@@ -112,8 +107,7 @@ cp <- cp %>%   mutate(misdemeanor = ifelse(law_cat_cd == "MISDEMEANOR", 1, 0)) %
   mutate(property_ellen = ifelse(ofns_desc %in% c("ARSON", "BURGLARY", "GRAND LARCENY", "GRAND LARCENY OF MOTOR VEHICLE", "PETIT LARCENY","THEFT-FRAUD"), 1, 0))
 
 cp %>%
-  write_csv("../00_data/complaints_2017_2020.csv", na = "")
->>>>>>> Stashed changes
+  write_csv("../00_data/complaints_2017_2019.csv", na = "")
 ```
 
 # Load OZ data
