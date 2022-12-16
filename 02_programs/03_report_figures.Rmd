@@ -626,6 +626,3 @@ cp_oz %>%
 ggsave("../03_output/distance_his_cp.png")
 ```
 
-
->>>>>>> ff180e0363423e52bf7427c3804ce22ffa025b2e
-
