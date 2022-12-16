@@ -28,7 +28,7 @@ The Project Team:
   - [01b_download_acs.Rmd](02_programs/01b_download_acs.Rmd): downloads 2013-2017 ACS data using `tidycensus`.
   - [01c_buffer.Rmd](02_programs/01c_oz_buffer.Rmd): creates a buffer around OZ boundaries.
   - [01d_select_adj_blocks.Rmd](02_programs/01d_select_adj_blocks.Rmd): selects adjacent Census blocks to the OZ boundary.
-  - [02_spatial_join.Rmd](02_spatial_join.Rmd): joins files together and performs a spatial join to identify the relevant Census block and tract ID numbers.
+  - [02_spatial_join.Rmd](02_programs/02_spatial_join.Rmd): joins files together and performs a spatial join to identify the relevant Census block and tract ID numbers.
   - [03_report_figures.Rmd](02_programs/03_report_figures.Rmd): generates all report figures and tables to be included in our final write-up.
 - 03_output: plots and table output
 - \_scratch: Exploratory work outside the cleaning and analysis pipeline
