@@ -14,14 +14,18 @@ library(sf)
 ```{r}
 # load census tracts and census blocks
 cb <- st_read("https://data.cityofnewyork.us/resource/twhy-dzjp.geojson?$limit=1000000") %>%
-  st_transform(2263) %>% 
-  mutate(county_code = case_when(boro_code == 1 ~ "36061",
-                                 boro_code == 2 ~ "36005",
-                                 boro_code == 3 ~ "36047",
-                                 boro_code == 4 ~ "36081",
-                                 boro_code == 5 ~ "36085"),
-         GEOID = str_c(county_code, ct2010),
-         GEOID_b = str_c(county_code, ct2010, cb2010))
+  st_transform(2263) %>%
+  mutate(
+    county_code = case_when(
+      boro_code == 1 ~ "36061",
+      boro_code == 2 ~ "36005",
+      boro_code == 3 ~ "36047",
+      boro_code == 4 ~ "36081",
+      boro_code == 5 ~ "36085"
+    ),
+    GEOID = str_c(county_code, ct2010),
+    GEOID_b = str_c(county_code, ct2010, cb2010)
+  )
 
 # load acs data
 acs_oz <- read_csv("../00_data/acs_oz.csv")
@@ -35,7 +39,7 @@ ar %>%
   head()
 
 ar_sf <- ar %>%
-  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>% 
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>%
   # convert to projected coordinate system, state plan ny, feet
   st_transform(2263)
 
@@ -48,7 +52,7 @@ st %>%
   head()
 
 st_sf <- st %>%
-  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>% 
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>%
   # convert to projected coordinate system, state plan ny, feet
   st_transform(2263)
 ```
@@ -60,16 +64,16 @@ cp %>%
 
 cp_sf <- cp %>%
   filter(!is.na(longitude) & !is.na(latitude)) %>%
-  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>% 
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>%
   # convert to projected coordinate system, state plan ny, feet
   st_transform(2263)
 ```
 
 ```{r}
 # load oz data
-nyc_oz <- st_read("../00_data/nyc_oz.geojson") %>% 
+nyc_oz <- st_read("../00_data/nyc_oz.geojson") %>%
   # convert to boolean
-  mutate(DESIGNATED = if_else(DESIGNATED == "True", TRUE, FALSE)) %>% 
+  mutate(DESIGNATED = if_else(DESIGNATED == "True", TRUE, FALSE)) %>%
   # convert to state plan coordinate system, feet
   st_transform(2263)
 ```
@@ -84,8 +88,8 @@ nyc_oz %>%
 
 ```{r}
 # load buffer
-oz_buffer <- st_read("../00_data/oz_buffer.geojson") %>% 
-  mutate(buffer = TRUE) %>% 
+oz_buffer <- st_read("../00_data/oz_buffer.geojson") %>%
+  mutate(buffer = TRUE) %>%
   select(buffer, geometry)
 
 oz_buffer %>%
@@ -93,11 +97,11 @@ oz_buffer %>%
   geom_sf() +
   theme_void()
 
-oz_buffer %>% 
+oz_buffer %>%
   head()
 
 oz_bound <- st_read("../00_data/oz_bound.geojson")
-oz_bound %>% 
+oz_bound %>%
   head()
 
 oz_bound %>%
@@ -115,10 +119,11 @@ cb_adj <- read_csv("../00_data/cb_adjacent.csv")
 ```{r}
 # spatial joins
 ar_oz <- ar_sf %>%
-  #st_join(nyc_oz, left = TRUE) %>% 
-  st_join(cb, left = TRUE) %>% 
-  st_join(oz_buffer, left = TRUE) %>% 
-  left_join(acs_oz, by = "GEOID") %>% 
+  # st_join(nyc_oz, left = TRUE) %>%
+  st_join(cb, left = TRUE) %>%
+  st_join(oz_buffer, left = TRUE) %>%
+  left_join(acs_oz %>%
+    mutate(GEOID = as.character(GEOID)), by = "GEOID") %>%
   mutate(distance_boundary = st_distance(ar_sf, oz_bound))
 
 ar_oz %>%
@@ -131,41 +136,44 @@ ar_oz %>%
 ```
 
 ```{r}
-ar_oz %>% 
+ar_oz %>%
   mutate(distance_boundary = as.numeric(distance_boundary)) %>%
-  filter(!is.na(distance_boundary)) %>% 
-  filter(distance_boundary <= 1)  %>% 
+  filter(!is.na(distance_boundary)) %>%
+  filter(distance_boundary <= 1) %>%
   ggplot() +
-  geom_sf(color = 'blue', alpha = 0.01) +
-  geom_sf(data = oz_bound, color = 'red')
+  geom_sf(color = "blue", alpha = 0.01) +
+  geom_sf(data = oz_bound, color = "red")
 
-ar_oz %>% 
-  mutate(distance_boundary = as.numeric(distance_boundary),
-         distance_boundary = round(distance_boundary, digits = -1)) %>% 
-  as.data.frame() %>% 
-  filter(DESIGNATED %in% c(TRUE, FALSE), distance_boundary < 1000) %>% 
-  filter(DESIGNATED == F) %>% 
-  group_by(distance_boundary, DESIGNATED) %>% 
+ar_oz %>%
+  mutate(
+    distance_boundary = as.numeric(distance_boundary),
+    distance_boundary = round(distance_boundary, digits = -1)
+  ) %>%
+  as.data.frame() %>%
+  filter(DESIGNATED %in% c(TRUE, FALSE), distance_boundary < 1000) %>%
+  filter(DESIGNATED == F) %>%
+  group_by(distance_boundary, DESIGNATED) %>%
   summarize(n = n())
 ```
 
 
 ```{r}
 st_oz <- st_sf %>%
-  st_join(nyc_oz, left = TRUE) %>% 
-  st_join(cb, left = TRUE) %>% 
-  st_join(oz_buffer, left = TRUE) %>% 
+  st_join(nyc_oz, left = TRUE) %>%
+  st_join(cb %>%
+    select(-GEOID), left = TRUE) %>%
+  st_join(oz_buffer, left = TRUE) %>%
   mutate(distance_boundary = st_distance(st_sf, oz_bound))
 
 # checking no new obs introduced
-st_sf %>% 
-  as.data.frame() %>% 
-  nrow() %>% 
+st_sf %>%
+  as.data.frame() %>%
+  nrow() %>%
   equals(
-    st_oz %>% 
-    as.data.frame() %>% 
-    nrow()
-  ) %>% 
+    st_oz %>%
+      as.data.frame() %>%
+      nrow()
+  ) %>%
   stopifnot()
 
 st_oz %>%
@@ -173,9 +181,10 @@ st_oz %>%
 ```
 ```{r}
 cp_oz <- cp_sf %>%
-  st_join(nyc_oz, left = TRUE)  %>% 
-  st_join(cb, left = TRUE) %>% 
-  st_join(oz_buffer, left = TRUE) %>% 
+  st_join(nyc_oz, left = TRUE) %>%
+  st_join(cb %>%
+    select(-GEOID), left = TRUE) %>%
+  st_join(oz_buffer, left = TRUE) %>%
   mutate(distance_boundary = st_distance(cp_sf, oz_bound))
 
 cp_oz %>%
@@ -186,12 +195,12 @@ cp_oz %>%
 cp_oz %>%
   head()
 
-cp_oz %>% 
-  filter(as.numeric(distance_boundary) <= (264*2)) %>% 
-  head(10000) %>% 
+cp_oz %>%
+  filter(as.numeric(distance_boundary) <= (264 * 2)) %>%
+  head(10000) %>%
   ggplot() +
   geom_sf(data = oz_buffer) +
-  geom_sf(alpha=0.2, color = 'red') +
+  geom_sf(alpha = 0.2, color = "red") +
   theme_void()
 ```
 
@@ -200,7 +209,7 @@ cp_oz %>%
 # write data
 ar_oz %>%
   as.data.frame() %>%
-  mutate(distance_boundary = as.numeric(distance_boundary)) %>% 
+  mutate(distance_boundary = as.numeric(distance_boundary)) %>%
   write_csv("../00_data/ar_oz.csv")
 
 # ar_oz %>%
