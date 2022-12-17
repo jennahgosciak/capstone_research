@@ -154,7 +154,7 @@ ar_oz %>%
   filter(DESIGNATED %in% c(TRUE, FALSE), distance_boundary < 1000) %>%
   filter(DESIGNATED == F) %>%
   group_by(distance_boundary, DESIGNATED) %>%
-  summarize(n = n()) 
+  summarize(n = n())
 ```
 
 
@@ -206,20 +206,19 @@ cp_oz %>%
 ```
 
 ```{r}
-acs_oz_vars <- acs_oz %>% 
-  select(GEOID, population:pctover64) %>% 
+acs_oz_vars <- acs_oz %>%
+  select(GEOID, population:pctover64) %>%
   mutate(GEOID = as.character(GEOID))
 
 
-st_oz_acs <- st_oz %>% 
-    left_join(acs_oz_vars, by = "GEOID")
+st_oz_acs <- st_oz %>%
+  left_join(acs_oz_vars, by = "GEOID")
 
-cp_oz_acs <- cp_oz %>% 
-    left_join(acs_oz_vars, by = "GEOID")
+cp_oz_acs <- cp_oz %>%
+  left_join(acs_oz_vars, by = "GEOID")
 
-ar_oz_acs <- ar_oz  %>% 
-    left_join(acs_oz_vars, by = "GEOID")
-
+ar_oz_acs <- ar_oz %>%
+  left_join(acs_oz_vars, by = "GEOID")
 ```
 
 ```{r}
