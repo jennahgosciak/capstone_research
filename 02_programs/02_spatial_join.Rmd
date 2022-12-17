@@ -10,8 +10,9 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(lubridate)
 library(sf)
+library(magrittr)
 ```
-```{r}
+```{r, message = F}
 # load census tracts and census blocks
 cb <- st_read("https://data.cityofnewyork.us/resource/twhy-dzjp.geojson?$limit=1000000") %>%
   st_transform(2263) %>%
@@ -119,11 +120,10 @@ cb_adj <- read_csv("../00_data/cb_adjacent.csv")
 ```{r}
 # spatial joins
 ar_oz <- ar_sf %>%
-  # st_join(nyc_oz, left = TRUE) %>%
-  st_join(cb, left = TRUE) %>%
+  st_join(nyc_oz, left = TRUE) %>%
+  st_join(cb %>%
+    select(-GEOID), left = TRUE) %>%
   st_join(oz_buffer, left = TRUE) %>%
-  left_join(acs_oz %>%
-    mutate(GEOID = as.character(GEOID)), by = "GEOID") %>%
   mutate(distance_boundary = st_distance(ar_sf, oz_bound))
 
 ar_oz %>%
@@ -142,7 +142,8 @@ ar_oz %>%
   filter(distance_boundary <= 1) %>%
   ggplot() +
   geom_sf(color = "blue", alpha = 0.01) +
-  geom_sf(data = oz_bound, color = "red")
+  geom_sf(data = oz_bound, color = "red") +
+  theme_void()
 
 ar_oz %>%
   mutate(
@@ -153,7 +154,7 @@ ar_oz %>%
   filter(DESIGNATED %in% c(TRUE, FALSE), distance_boundary < 1000) %>%
   filter(DESIGNATED == F) %>%
   group_by(distance_boundary, DESIGNATED) %>%
-  summarize(n = n())
+  summarize(n = n()) 
 ```
 
 
@@ -204,10 +205,26 @@ cp_oz %>%
   theme_void()
 ```
 
+```{r}
+acs_oz_vars <- acs_oz %>% 
+  select(GEOID, population:pctover64) %>% 
+  mutate(GEOID = as.character(GEOID))
+
+
+st_oz_acs <- st_oz %>% 
+    left_join(acs_oz_vars, by = "GEOID")
+
+cp_oz_acs <- cp_oz %>% 
+    left_join(acs_oz_vars, by = "GEOID")
+
+ar_oz_acs <- ar_oz  %>% 
+    left_join(acs_oz_vars, by = "GEOID")
+
+```
 
 ```{r}
 # write data
-ar_oz %>%
+ar_oz_acs %>%
   as.data.frame() %>%
   mutate(distance_boundary = as.numeric(distance_boundary)) %>%
   write_csv("../00_data/ar_oz.csv")
@@ -219,19 +236,19 @@ ar_oz %>%
 ```
 
 ```{r}
-st_oz %>%
+st_oz_acs %>%
   as.data.frame() %>%
   mutate(distance_boundary = as.numeric(distance_boundary)) %>%
   write_csv("../00_data/st_oz.csv")
 
-st_oz %>%
+st_oz_acs %>%
   st_write("../00_data/st_oz.geojson",
     delete_dsn = TRUE
   )
 ```
 
 ```{r}
-cp_oz %>%
+cp_oz_acs %>%
   as.data.frame() %>%
   mutate(distance_boundary = as.numeric(distance_boundary)) %>%
   write_csv("../00_data/cp_oz.csv")
@@ -240,24 +257,5 @@ cp_oz %>%
 #   select(-c(cmplnt_fr_tm, cmplnt_to_tm)) %>%
 #   st_write("../00_data/cp_oz.geojson",
 #            delete_dsn = TRUE)
-```
-
-```{r}
-ar_oz <- read_csv("../00_data/ar_oz.csv")
-
-cp_oz <- read_csv("../00_data/cp_oz.csv")
-
-st_oz <- read_csv("../00_data/st_oz.csv")
-
-acs_oz_vars <- acs_oz %>% 
-  select(GEOID, population:pctover64)
-
-cp_oz_acs <- cp_oz %>% 
-    left_join(acs_oz_vars, by = "GEOID") %>% 
-    write_csv("../00_data/cp_oz_acs.csv")
-
-ar_oz_acs <- ar_oz  %>% 
-    write_csv("../00_data/ar_oz_acs.csv")
-
 ```
 

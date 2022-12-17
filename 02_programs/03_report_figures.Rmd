@@ -18,7 +18,7 @@ library("sandwich")
 
 * We will update this as the report figures change
 
-```{r}
+```{r, include=F}
 # download data
 ar_oz <- read_csv("../00_data/ar_oz.csv")
 
@@ -26,10 +26,8 @@ cp_oz <- read_csv("../00_data/cp_oz.csv")
 
 st_oz <- read_csv("../00_data/st_oz.csv")
 
-ar_oz_acs <- read_csv("../00_data/ar_oz_acs.csv")
-
-cp_oz_acs <- read_csv("../00_data/cp_oz_acs.csv")
-
+ar_oz %>% 
+  head()
 ```
 
 ```{r}
@@ -74,7 +72,6 @@ ar_oz %>%
   group_by(DESIGNATED) %>%
   summarize(avg = mean(n))
 
-cp_oz
 cp_oz %>%
   group_by(GEOID, DESIGNATED) %>%
   summarize(n = n()) %>%
@@ -373,6 +370,7 @@ ggsave("../03_output/avg_property_complaints_buffer.png", height = 3, width = 4.
 ```{r}
 # average shootings by Census tract over time
 st_oz %>%
+  filter(!is.na(DESIGNATED)) %>% 
   group_by(GEOID, st_month_yr, DESIGNATED) %>%
   summarize(n = n()) %>%
   group_by(st_month_yr, DESIGNATED) %>%
@@ -409,6 +407,7 @@ st_oz %>%
 ggsave("../03_output/avg_buffer_shootings.png", height = 3, width = 4.5)
 
 st_oz %>%
+  filter(!is.na(DESIGNATED)) %>% 
   group_by(GEOID, st_qrtr_yr, DESIGNATED) %>%
   summarize(n = n()) %>%
   group_by(st_qrtr_yr, DESIGNATED) %>%
@@ -428,22 +427,49 @@ st_oz %>%
 
 ```{r}
 # attempt at adjusted differences
+ar_oz_adj_diff <- ar_oz %>% 
+  # note: calculating this at the Census block level
+  group_by(GEOID_b, arrest_month_yr, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
+           pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64) %>% 
+  summarize(across(c(violent_ellen, property_ellen), ~sum(., na.rm = T))) %>% 
+  filter(!is.na(DESIGNATED)) %>% 
+  mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag))
+
+nrow(ar_oz_adj_diff)
+
+# unadjusted plot
+ar_oz_adj_diff %>% 
+  ggplot() +
+  stat_summary(aes(arrest_month_yr, violent_ellen, color = DESIGNATED),
+               fun = "mean", geom = "line") +
+  theme_classic()
 
 #ideal model
-lmviolentarrest <- lm(violent_ellen ~ pct_white + pct_higher_ed + pct_rent + pct_native_hc_covered + pct_poverty + minutes_commute_avg + dec_score+ SE_Flag + vacancyrate + pctunder18 + pctover64, ar_oz_acs)
+lmviolentarrest <- lm(violent_ellen ~ pct_white + pct_higher_ed + pct_rent +
+                        pct_native_hc_covered + pct_poverty + minutes_commute_avg + dec_score + SE_Flag + vacancyrate + pctunder18 +
+                        pctover64, ar_oz_adj_diff)
 
-#testing with just one covariate because missing data that I don't know how to deal with rn 
-modeldata <- ar_oz_acs %>%  
-  filter(!is.na(DESIGNATED) & !is.na(pct_white))
+lmpropertyarrest <- lm(property_ellen ~ pct_white + pct_higher_ed + pct_rent +
+                        pct_native_hc_covered + pct_poverty + minutes_commute_avg + dec_score + SE_Flag + vacancyrate + pctunder18 +
+                        pctover64, ar_oz_adj_diff)
 
-lmviolentarrest <- lm(violent_ellen ~ pct_white, modeldata)
-summary(lmviolentarrest)
+```
+```{r}
+modeldata <- cbind(ar_oz_adj_diff[rownames(lmviolentarrest$model), ], "resid_violent" = lmviolentarrest$residuals,
+                   "resid_property" = lmpropertyarrest$residuals) 
+modeldata
 
-violentarrest.res <- lmviolentarrest$residuals
+modeldata %>% 
+  ggplot() +
+  stat_summary(aes(arrest_month_yr, resid_violent, color = DESIGNATED),
+               fun = "mean", geom = "line") +
+  theme_classic()
 
-plot(fitted(lmviolentarrest), violentarrest.res)
-plot(modeldata$distance_boundary , violentarrest.res)
-
+modeldata %>% 
+  ggplot() +
+  stat_summary(aes(arrest_month_yr, resid_property, color = DESIGNATED),
+               fun = "mean", geom = "line") +
+  theme_classic()
 ```
 
 ## Descriptive stats and missing rates
