@@ -26,6 +26,8 @@ cp_oz <- read_csv("../00_data/cp_oz.csv")
 
 st_oz <- read_csv("../00_data/st_oz.csv")
 
+cp_oz_acs <- read_csv("../00_data/cp_oz_acs.csv")
+
 ar_oz %>%
   head()
 
@@ -43,6 +45,13 @@ ar_oz <- ar_oz %>%
   mutate(year = year(arrest_month_yr))
 
 cp_oz <- cp_oz %>%
+  mutate(cp_month_yr = as.Date(
+    str_c(month(cmplnt_fr_dt), 1, year(cmplnt_fr_dt), sep = "-"),
+    "%m-%d-%Y"
+  )) %>%
+  mutate(year = year(cp_month_yr))
+
+cp_oz <- cp_oz_acs %>%
   mutate(cp_month_yr = as.Date(
     str_c(month(cmplnt_fr_dt), 1, year(cmplnt_fr_dt), sep = "-"),
     "%m-%d-%Y"
@@ -428,7 +437,7 @@ st_oz %>%
 ```
 
 ```{r}
-# attempt at adjusted differences
+# attempt at adjusted differences for arrests 
 ar_oz_adj_diff <- ar_oz %>%
   # note: calculating this at the Census block level
   group_by(
@@ -486,22 +495,74 @@ lmpropertyarrest <- lm(property_ellen ~ pct_white + pct_higher_ed + pct_rent +
   pctover64, ar_oz_adj_diff)
 ```
 ```{r}
-modeldata <- cbind(ar_oz_adj_diff[rownames(lmviolentarrest$model), ],
+modeldataarrest <- cbind(ar_oz_adj_diff[rownames(lmviolentarrest$model), ],
   "resid_violent" = lmviolentarrest$residuals,
   "resid_property" = lmpropertyarrest$residuals
 )
-modeldata
+modeldataarrest
 
-modeldata %>%
+modeldataarrest %>%
   ggplot() +
   stat_summary(aes(arrest_month_yr, resid_violent, color = DESIGNATED),
     fun = "mean", geom = "line"
   ) +
   theme_classic()
 
-modeldata %>%
+modeldataarrest %>%
   ggplot() +
   stat_summary(aes(arrest_month_yr, resid_property, color = DESIGNATED),
+    fun = "mean", geom = "line"
+  ) +
+  theme_classic()
+```
+```{r}
+# attempt at adjusted differences for complaints
+cp_oz_adj_diff <- cp_oz %>%
+  # note: calculating this at the Census block level
+  group_by(
+    GEOID_b, cp_month_yr, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
+    pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64
+  ) %>%
+  summarize(across(c(violent_ellen, property_ellen), ~ sum(., na.rm = T))) %>%
+  filter(!is.na(DESIGNATED)) %>%
+  mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag))
+
+nrow(cp_oz_adj_diff)
+
+# unadjusted plot
+cp_oz_adj_diff %>%
+  ggplot() +
+  stat_summary(aes(cp_month_yr, violent_ellen, color = DESIGNATED),
+    fun = "mean", geom = "line"
+  ) +
+  theme_classic()
+
+# ideal model
+lmviolentcomplaint <- lm(violent_ellen ~ pct_white + pct_higher_ed + pct_rent +
+  pct_native_hc_covered + pct_poverty + minutes_commute_avg + dec_score + SE_Flag + vacancyrate + pctunder18 +
+  pctover64, cp_oz_adj_diff)
+
+lmpropertycomplaint <- lm(property_ellen ~ pct_white + pct_higher_ed + pct_rent +
+  pct_native_hc_covered + pct_poverty + minutes_commute_avg + dec_score + SE_Flag + vacancyrate + pctunder18 +
+  pctover64, cp_oz_adj_diff)
+```
+```{r}
+modeldatacomplaint <- cbind(cp_oz_adj_diff[rownames(lmviolentcomplaint$model), ],
+  "resid_violent" = lmviolentcomplaint$residuals,
+  "resid_property" = lmpropertycomplaint$residuals
+)
+modeldatacomplaint
+
+modeldatacomplaint %>%
+  ggplot() +
+  stat_summary(aes(cp_month_yr, resid_violent, color = DESIGNATED),
+    fun = "mean", geom = "line"
+  ) +
+  theme_classic()
+
+modeldatacomplaint %>%
+  ggplot() +
+  stat_summary(aes(cp_month_yr, resid_property, color = DESIGNATED),
     fun = "mean", geom = "line"
   ) +
   theme_classic()
