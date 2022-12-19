@@ -36,16 +36,16 @@ cb <- st_read("https://data.cityofnewyork.us/resource/twhy-dzjp.geojson?$limit=1
     ),
     GEOID = str_c(county_code, ct2010),
     GEOID_b = str_c(county_code, ct2010, cb2010)
-  ) %>% 
+  ) %>%
   mutate(geometry = st_make_valid(geometry))
 
 table(st_is_valid(cb))
 
-cb <- cb %>% 
+cb <- cb %>%
   left_join(nyc_oz %>%
-              as.data.frame() %>%
-               mutate(GEOID = str_trim(GEOID)) %>% 
-              select(-geometry) , on = "GEOID")
+    as.data.frame() %>%
+    mutate(GEOID = str_trim(GEOID)) %>%
+    select(-geometry), on = "GEOID")
 cb %>%
   as.data.frame() %>%
   select(DESIGNATED) %>%
@@ -235,7 +235,7 @@ stopifnot(nrow(as.data.frame(ar_oz_acs)) == nrow(as.data.frame(ar_oz)))
 
 ```{r}
 # making sure census blocks and OZ tracts line up
-checking_rows <- ar_oz_acs %>% 
+checking_rows <- ar_oz_acs %>%
   as.data.frame() %>%
   # note: calculating this at the Census block level
   group_by(
@@ -248,13 +248,13 @@ checking_rows <- ar_oz_acs %>%
 
 stopifnot(eeptools::isid(checking_rows, c("GEOID_b")))
 
-checking_rows %>% 
-  mutate(GEOID_b = as.character(GEOID_b)) %>% 
-  group_by(GEOID_b) %>% 
-  mutate(n = n_distinct(GEOID)) %>% 
-  filter(n > 1) %>% 
-  nrow() %>% 
-  equals(0) %>% 
+checking_rows %>%
+  mutate(GEOID_b = as.character(GEOID_b)) %>%
+  group_by(GEOID_b) %>%
+  mutate(n = n_distinct(GEOID)) %>%
+  filter(n > 1) %>%
+  nrow() %>%
+  equals(0) %>%
   stopifnot()
 ```
 

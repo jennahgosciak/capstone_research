@@ -435,7 +435,7 @@ st_oz %>%
 ```
 
 ```{r}
-# attempt at adjusted differences for arrests 
+# attempt at adjusted differences for arrests
 ar_oz_adj_diff <- ar_oz %>%
   # note: calculating this at the Census block level
   group_by(
@@ -446,8 +446,8 @@ ar_oz_adj_diff <- ar_oz %>%
   filter(!is.na(DESIGNATED) & buffer == 1) %>%
   mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag))
 
-ar_oz_adj_diff %>% 
-  select(DESIGNATED) %>% 
+ar_oz_adj_diff %>%
+  select(DESIGNATED) %>%
   unique()
 ```
 
@@ -475,27 +475,36 @@ labs_cp <- c("Violent crime complaints", "Property crime complaints")
 create_plots <- function(df, outcomes, labs, fname, date_var) {
   # unadjusted plot
   df %>%
-    rename_at(date_var, ~"date") %>% 
-    ungroup() %>% 
-    pivot_longer(c(violent_ellen, property_ellen))  %>% 
-    mutate(name = factor(labs[match(name, outcomes)], levels = labs,
-                         ordered = T),
-           desig_lab = factor(if_else(DESIGNATED == T, "Designated", "Eligible, not designated"),
-                              levels = c("Designated", "Eligible, not designated"),
-                              ordered = T)) %>% 
+    rename_at(date_var, ~"date") %>%
+    ungroup() %>%
+    pivot_longer(c(violent_ellen, property_ellen)) %>%
+    mutate(
+      name = factor(labs[match(name, outcomes)],
+        levels = labs,
+        ordered = T
+      ),
+      desig_lab = factor(if_else(DESIGNATED == T, "Designated", "Eligible, not designated"),
+        levels = c("Designated", "Eligible, not designated"),
+        ordered = T
+      )
+    ) %>%
     ggplot() +
     stat_summary(aes(date, value, color = desig_lab),
       fun = "mean", geom = "line"
     ) +
-    geom_vline(xintercept = mdy("04-01-2018"), linetype = "dashed",
-               color = "gray") +
+    geom_vline(
+      xintercept = mdy("04-01-2018"), linetype = "dashed",
+      color = "gray"
+    ) +
     theme_classic() +
-    labs(y = "Number of incidents per block",
-         x = "Month-year",
-         color = "Designation") +
+    labs(
+      y = "Number of incidents per block",
+      x = "Month-year",
+      color = "Designation"
+    ) +
     facet_wrap(~name, scales = "free")
-  
-  ggsave(str_glue("../03_output/unadjusted_{fname}.png"), height=6, width=10) 
+
+  ggsave(str_glue("../03_output/unadjusted_{fname}.png"), height = 6, width = 10)
 }
 
 create_plots(ar_oz_adj_diff, outcomes, labs_ar, "arrests", "arrest_month_yr")
@@ -509,41 +518,51 @@ create_adjusted_plots <- function(df, outcomes, labs, fname, date_var) {
   lmviolent <- lm(violent_ellen ~ pct_white + pct_higher_ed + pct_rent +
     pct_native_hc_covered + pct_poverty + minutes_commute_avg + dec_score + SE_Flag + vacancyrate + pctunder18 +
     pctover64, df)
-  
+
   lmproperty <- lm(property_ellen ~ pct_white + pct_higher_ed + pct_rent +
     pct_native_hc_covered + pct_poverty + minutes_commute_avg + dec_score + SE_Flag + vacancyrate + pctunder18 +
     pctover64, df)
-  
+
   modeldata <- cbind(df[rownames(lmviolent$model), ],
-  "resid_violent" = lmviolent$residuals,
-  "resid_property" = lmproperty$residuals) %>% 
+    "resid_violent" = lmviolent$residuals,
+    "resid_property" = lmproperty$residuals
+  ) %>%
     pivot_longer(c("resid_violent", "resid_property"))
-  
-  modeldata %>% 
-    nrow() %>% 
+
+  modeldata %>%
+    nrow() %>%
     print()
-  
-  plot <- modeldata %>% 
-    ungroup() %>% 
-    rename_at(date_var, ~"date") %>% 
-    mutate(name = factor(labs[match(name, outcomes)], levels = labs,
-                         ordered = T),
-           desig_lab = factor(if_else(DESIGNATED == T, "Designated", "Eligible, not designated"),
-                              levels = c("Designated", "Eligible, not designated"),
-                              ordered = T)) %>% 
+
+  plot <- modeldata %>%
+    ungroup() %>%
+    rename_at(date_var, ~"date") %>%
+    mutate(
+      name = factor(labs[match(name, outcomes)],
+        levels = labs,
+        ordered = T
+      ),
+      desig_lab = factor(if_else(DESIGNATED == T, "Designated", "Eligible, not designated"),
+        levels = c("Designated", "Eligible, not designated"),
+        ordered = T
+      )
+    ) %>%
     ggplot() +
     stat_summary(aes(date, value, color = desig_lab),
       fun = "mean", geom = "line"
     ) +
-    geom_vline(xintercept = mdy("04-01-2018"), linetype = "dashed",
-               color = "gray") +
+    geom_vline(
+      xintercept = mdy("04-01-2018"), linetype = "dashed",
+      color = "gray"
+    ) +
     theme_classic() +
-    labs(y = "Residual",
-         x = "Month-year",
-         color = "Designation") +
+    labs(
+      y = "Residual",
+      x = "Month-year",
+      color = "Designation"
+    ) +
     facet_wrap(~name, scales = "free")
-  
-  ggsave(str_glue("../03_output/adjusted_{fname}.png"), height=6, width=10) 
+
+  ggsave(str_glue("../03_output/adjusted_{fname}.png"), height = 6, width = 10)
 }
 
 create_adjusted_plots(ar_oz_adj_diff, outcomes, labs_ar, "arrests", "arrest_month_yr")
@@ -681,11 +700,11 @@ test_baseline_significance <- function(outcome, print = FALSE,
     int <- int * 100
     treat_se <- treat_se * 100
   }
-  treat_obs <- data %>% 
-    filter(treatment == 1) %>% 
+  treat_obs <- data %>%
+    filter(treatment == 1) %>%
     nrow()
-  comp_obs <- data %>% 
-    filter(treatment == 0) %>% 
+  comp_obs <- data %>%
+    filter(treatment == 0) %>%
     nrow()
   data.frame(
     "var" = outcome,
@@ -825,13 +844,17 @@ ggsave("../03_output/distance_his_cp.png")
 # histograms of violent/prop crime
 ar_oz_plots <- ar_oz %>%
   filter(property_ellen == 1 & (DESIGNATED == T | (DESIGNATED == F & LIC == T))) %>%
-  mutate(post = factor(if_else(arrest_date > mdy("04-20-2018"), "After April 20, 2018 (Post period)", "Before April 20, 2018 (Pre period)"), levels = c("Before April 20, 2018 (Pre period)", "After April 20, 2018 (Post period)"),
-                       ordered = T)) 
+  mutate(post = factor(if_else(arrest_date > mdy("04-20-2018"), "After April 20, 2018 (Post period)", "Before April 20, 2018 (Pre period)"),
+    levels = c("Before April 20, 2018 (Pre period)", "After April 20, 2018 (Post period)"),
+    ordered = T
+  ))
 
 cp_oz_plots <- cp_oz %>%
   filter(violent_ellen == 1 & (DESIGNATED == T | (DESIGNATED == F & LIC == T))) %>%
-  mutate(post = factor(if_else(cmplnt_fr_dt > mdy("04-20-2018"), "After April 20, 2018 (Post period)", "Before April 20, 2018 (Pre period)"), levels = c("Before April 20, 2018 (Pre period)", "After April 20, 2018 (Post period)"),
-                       ordered = T)) 
+  mutate(post = factor(if_else(cmplnt_fr_dt > mdy("04-20-2018"), "After April 20, 2018 (Post period)", "Before April 20, 2018 (Pre period)"),
+    levels = c("Before April 20, 2018 (Pre period)", "After April 20, 2018 (Post period)"),
+    ordered = T
+  ))
 
 ar_oz_plots %>%
   mutate(distance_boundary = if_else(DESIGNATED == F, -1 * distance_boundary, distance_boundary)) %>%
@@ -840,8 +863,10 @@ ar_oz_plots %>%
   geom_vline(xintercept = 0, color = "red") +
   theme_classic() +
   facet_wrap(~post, nrow = 1, scales = "free_y") +
-  labs(y = "Number of violent crime arrests",
-       x = "Distance from the boundary")
+  labs(
+    y = "Number of violent crime arrests",
+    x = "Distance from the boundary"
+  )
 
 ggsave("../03_output/distance_his_ar_violent.png")
 
@@ -852,8 +877,10 @@ ar_oz_plots %>%
   geom_vline(xintercept = 0, color = "red") +
   theme_classic() +
   facet_wrap(~post, nrow = 1, scales = "free_y") +
-  labs(y = "Number of property crime arrests",
-       x = "Distance from the boundary")
+  labs(
+    y = "Number of property crime arrests",
+    x = "Distance from the boundary"
+  )
 
 ggsave("../03_output/distance_his_ar_prop.png")
 
@@ -864,8 +891,10 @@ cp_oz_plots %>%
   geom_vline(xintercept = 0, color = "red") +
   theme_classic() +
   facet_wrap(~post, nrow = 1, scales = "free_y") +
-  labs(y = "Number of violent crime complaints",
-       x = "Distance from the boundary")
+  labs(
+    y = "Number of violent crime complaints",
+    x = "Distance from the boundary"
+  )
 
 ggsave("../03_output/distance_his_cp_violent.png")
 
@@ -876,8 +905,10 @@ cp_oz_plots %>%
   geom_vline(xintercept = 0, color = "red") +
   theme_classic() +
   facet_wrap(~post, nrow = 1, scales = "free_y") +
-  labs(y = "Number of violent crime complaints",
-       x = "Distance from the boundary")
+  labs(
+    y = "Number of violent crime complaints",
+    x = "Distance from the boundary"
+  )
 
 ggsave("../03_output/distance_his_cp_prop.png")
 ```
