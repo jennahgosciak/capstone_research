@@ -30,6 +30,14 @@ st_oz <- read_csv("../00_data/st_oz.csv")
 ar_oz %>%
   head()
 
+# load varlist
+acs_varlist <- readxl::read_excel("../00_data/acs_varlist.xlsx") %>%
+  filter(include == 1)
+acs_varlist
+
+acs_vars <- acs_varlist$variable
+names(acs_vars) <- acs_varlist$description
+
 constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
 urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
 ```
@@ -618,7 +626,7 @@ acs_oz %>%
 
 ```{r}
 
-acs_bg %>%
+acs_oz_bg %>%
   as.data.frame() %>%
   group_by(DESIGNATED) %>%
   # create missing flag
@@ -635,7 +643,7 @@ acs_bg %>%
   select(name, designated, eligible) %>%
   write_csv("../03_output/desc_means_bg.csv", na = "")
 
-acs_bg %>%
+acs_oz_bg %>%
   as.data.frame() %>%
   group_by(DESIGNATED) %>%
   # create missing flag
