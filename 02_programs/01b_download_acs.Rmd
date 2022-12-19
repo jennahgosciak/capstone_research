@@ -101,8 +101,11 @@ urban <- read_excel("../00_data/urbaninstitute_tractlevelozanalysis_update011420
 
 urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
 
+old_row_num <- nrow(acs_oz)
 acs_oz <- acs_oz %>%
   left_join(urban, by = c("GEOID"))
+
+stopifnot(old_row_num == nrow(acs_oz))
 ```
 
 ```{r}

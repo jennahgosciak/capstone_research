@@ -22,12 +22,13 @@ library(readxl)
 ```{r}
 boros <- st_read("https://data.cityofnewyork.us/resource/7t3b-ywvw.geojson")
 oz_bound <- st_read("../00_data/oz_bound.geojson")
-oz_buffer <- st_read("../00_data/oz_buffer.geojson")
+oz_buffer <- st_read("../00_data/oz_buffer_small.geojson")
 
 # load census blocks
 cb <- st_read("https://data.cityofnewyork.us/resource/twhy-dzjp.geojson?$limit=1000000") %>%
   st_transform(2263)
-
+```
+```{r}
 cb_touches <- cb %>%
   # more narrow buffer
   st_intersects(oz_buffer, sparse = F)

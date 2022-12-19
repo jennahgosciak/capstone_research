@@ -10,8 +10,19 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(lubridate)
 library(sf)
+library(magrittr)
 ```
+
 ```{r}
+# load oz data
+nyc_oz <- st_read("../00_data/nyc_oz.geojson") %>%
+  # convert to boolean
+  mutate(DESIGNATED = if_else(DESIGNATED == "True", TRUE, FALSE)) %>%
+  # convert to state plan coordinate system, feet
+  st_transform(2263)
+```
+
+```{r, message = F}
 # load census tracts and census blocks
 cb <- st_read("https://data.cityofnewyork.us/resource/twhy-dzjp.geojson?$limit=1000000") %>%
   st_transform(2263) %>%
@@ -25,8 +36,22 @@ cb <- st_read("https://data.cityofnewyork.us/resource/twhy-dzjp.geojson?$limit=1
     ),
     GEOID = str_c(county_code, ct2010),
     GEOID_b = str_c(county_code, ct2010, cb2010)
-  )
+  ) %>%
+  mutate(geometry = st_make_valid(geometry))
 
+table(st_is_valid(cb))
+
+cb <- cb %>%
+  left_join(nyc_oz %>%
+    as.data.frame() %>%
+    mutate(GEOID = str_trim(GEOID)) %>%
+    select(-geometry), on = "GEOID")
+cb %>%
+  as.data.frame() %>%
+  select(DESIGNATED) %>%
+  unique()
+```
+```{r}
 # load acs data
 acs_oz <- read_csv("../00_data/acs_oz.csv")
 acs_bg <- read_csv("../00_data/acs_bg.csv")
@@ -70,16 +95,6 @@ cp_sf <- cp %>%
 ```
 
 ```{r}
-# load oz data
-nyc_oz <- st_read("../00_data/nyc_oz.geojson") %>%
-  # convert to boolean
-  mutate(DESIGNATED = if_else(DESIGNATED == "True", TRUE, FALSE)) %>%
-  # convert to state plan coordinate system, feet
-  st_transform(2263)
-```
-
-
-```{r}
 nyc_oz %>%
   ggplot() +
   geom_sf(aes(fill = DESIGNATED)) +
@@ -119,11 +134,8 @@ cb_adj <- read_csv("../00_data/cb_adjacent.csv")
 ```{r}
 # spatial joins
 ar_oz <- ar_sf %>%
-  # st_join(nyc_oz, left = TRUE) %>%
   st_join(cb, left = TRUE) %>%
   st_join(oz_buffer, left = TRUE) %>%
-  left_join(acs_oz %>%
-    mutate(GEOID = as.character(GEOID)), by = "GEOID") %>%
   mutate(distance_boundary = st_distance(ar_sf, oz_bound))
 
 ar_oz %>%
@@ -133,6 +145,8 @@ ar_oz %>%
 
 ar_oz %>%
   head()
+
+stopifnot(nrow(as.data.frame(ar_sf)) == nrow(as.data.frame(ar_oz)))
 ```
 
 ```{r}
@@ -142,7 +156,8 @@ ar_oz %>%
   filter(distance_boundary <= 1) %>%
   ggplot() +
   geom_sf(color = "blue", alpha = 0.01) +
-  geom_sf(data = oz_bound, color = "red")
+  geom_sf(data = oz_bound, color = "red") +
+  theme_void()
 
 ar_oz %>%
   mutate(
@@ -159,9 +174,7 @@ ar_oz %>%
 
 ```{r}
 st_oz <- st_sf %>%
-  st_join(nyc_oz, left = TRUE) %>%
-  st_join(cb %>%
-    select(-GEOID), left = TRUE) %>%
+  st_join(cb, left = TRUE) %>%
   st_join(oz_buffer, left = TRUE) %>%
   mutate(distance_boundary = st_distance(st_sf, oz_bound))
 
@@ -181,9 +194,7 @@ st_oz %>%
 ```
 ```{r}
 cp_oz <- cp_sf %>%
-  st_join(nyc_oz, left = TRUE) %>%
-  st_join(cb %>%
-    select(-GEOID), left = TRUE) %>%
+  st_join(cb, left = TRUE) %>%
   st_join(oz_buffer, left = TRUE) %>%
   mutate(distance_boundary = st_distance(cp_sf, oz_bound))
 
@@ -204,10 +215,52 @@ cp_oz %>%
   theme_void()
 ```
 
+```{r}
+acs_oz_vars <- acs_oz %>%
+  select(GEOID, population:pctover64) %>%
+  mutate(GEOID = as.character(GEOID))
+
+
+st_oz_acs <- st_oz %>%
+  left_join(acs_oz_vars, by = "GEOID")
+
+cp_oz_acs <- cp_oz %>%
+  left_join(acs_oz_vars, by = "GEOID")
+
+ar_oz_acs <- ar_oz %>%
+  left_join(acs_oz_vars, by = "GEOID")
+
+stopifnot(nrow(as.data.frame(ar_oz_acs)) == nrow(as.data.frame(ar_oz)))
+```
+
+```{r}
+# making sure census blocks and OZ tracts line up
+checking_rows <- ar_oz_acs %>%
+  as.data.frame() %>%
+  # note: calculating this at the Census block level
+  group_by(
+    GEOID_b, GEOID, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
+    pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64
+  ) %>%
+  summarize(across(c(violent_ellen, property_ellen), ~ sum(., na.rm = T))) %>%
+  filter(!is.na(DESIGNATED)) %>%
+  mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag))
+
+stopifnot(eeptools::isid(checking_rows, c("GEOID_b")))
+
+checking_rows %>%
+  mutate(GEOID_b = as.character(GEOID_b)) %>%
+  group_by(GEOID_b) %>%
+  mutate(n = n_distinct(GEOID)) %>%
+  filter(n > 1) %>%
+  nrow() %>%
+  equals(0) %>%
+  stopifnot()
+```
 
 ```{r}
 # write data
-ar_oz %>%
+ar_oz_acs %>%
   as.data.frame() %>%
   mutate(distance_boundary = as.numeric(distance_boundary)) %>%
   write_csv("../00_data/ar_oz.csv")
@@ -219,19 +272,19 @@ ar_oz %>%
 ```
 
 ```{r}
-st_oz %>%
+st_oz_acs %>%
   as.data.frame() %>%
   mutate(distance_boundary = as.numeric(distance_boundary)) %>%
   write_csv("../00_data/st_oz.csv")
 
-st_oz %>%
+st_oz_acs %>%
   st_write("../00_data/st_oz.geojson",
     delete_dsn = TRUE
   )
 ```
 
 ```{r}
-cp_oz %>%
+cp_oz_acs %>%
   as.data.frame() %>%
   mutate(distance_boundary = as.numeric(distance_boundary)) %>%
   write_csv("../00_data/cp_oz.csv")
@@ -240,24 +293,5 @@ cp_oz %>%
 #   select(-c(cmplnt_fr_tm, cmplnt_to_tm)) %>%
 #   st_write("../00_data/cp_oz.geojson",
 #            delete_dsn = TRUE)
-```
-
-```{r}
-ar_oz <- read_csv("../00_data/ar_oz.csv")
-
-cp_oz <- read_csv("../00_data/cp_oz.csv")
-
-st_oz <- read_csv("../00_data/st_oz.csv")
-
-acs_oz_vars <- acs_oz %>% 
-  select(GEOID, population:pctover64)
-
-cp_oz_acs <- cp_oz %>% 
-    left_join(acs_oz_vars, by = "GEOID") %>% 
-    write_csv("../00_data/cp_oz_acs.csv")
-
-ar_oz_acs <- ar_oz  %>% 
-    write_csv("../00_data/ar_oz_acs.csv")
-
 ```
 
