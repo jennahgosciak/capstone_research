@@ -857,20 +857,21 @@ ggsave("../03_output/distance_his_cp.png")
 ```{r}
 # histograms of violent/prop crime
 ar_oz_plots <- ar_oz %>%
-  filter(property_ellen == 1 & (DESIGNATED == T | (DESIGNATED == F & LIC == T))) %>%
+  filter((DESIGNATED == T | (DESIGNATED == F & LIC == T))) %>%
   mutate(post = factor(if_else(arrest_date > mdy("04-20-2018"), "After April 20, 2018 (Post period)", "Before April 20, 2018 (Pre period)"),
     levels = c("Before April 20, 2018 (Pre period)", "After April 20, 2018 (Post period)"),
     ordered = T
   ))
 
 cp_oz_plots <- cp_oz %>%
-  filter(violent_ellen == 1 & (DESIGNATED == T | (DESIGNATED == F & LIC == T))) %>%
+  filter((DESIGNATED == T | (DESIGNATED == F & LIC == T))) %>%
   mutate(post = factor(if_else(cmplnt_fr_dt > mdy("04-20-2018"), "After April 20, 2018 (Post period)", "Before April 20, 2018 (Pre period)"),
     levels = c("Before April 20, 2018 (Pre period)", "After April 20, 2018 (Post period)"),
     ordered = T
   ))
 
 ar_oz_plots %>%
+  filter(violent_ellen == 1) %>% 
   mutate(distance_boundary = if_else(DESIGNATED == F, -1 * distance_boundary, distance_boundary)) %>%
   ggplot() +
   geom_histogram(aes(distance_boundary), bins = 70) +
@@ -885,6 +886,7 @@ ar_oz_plots %>%
 ggsave("../03_output/distance_his_ar_violent.png")
 
 ar_oz_plots %>%
+  filter(property_ellen == 1) %>% 
   mutate(distance_boundary = if_else(DESIGNATED == F, -1 * distance_boundary, distance_boundary)) %>%
   ggplot() +
   geom_histogram(aes(distance_boundary), bins = 70) +
@@ -899,6 +901,7 @@ ar_oz_plots %>%
 ggsave("../03_output/distance_his_ar_prop.png")
 
 cp_oz_plots %>%
+  filter(violent_ellen == 1) %>% 
   mutate(distance_boundary = if_else(DESIGNATED == F, -1 * distance_boundary, distance_boundary)) %>%
   ggplot() +
   geom_histogram(aes(distance_boundary), bins = 70) +
@@ -913,6 +916,7 @@ cp_oz_plots %>%
 ggsave("../03_output/distance_his_cp_violent.png")
 
 cp_oz_plots %>%
+  filter(property_ellen == 1) %>% 
   mutate(distance_boundary = if_else(DESIGNATED == F, -1 * distance_boundary, distance_boundary)) %>%
   ggplot() +
   geom_histogram(aes(distance_boundary), bins = 70) +
@@ -920,7 +924,7 @@ cp_oz_plots %>%
   theme_classic() +
   facet_wrap(~post, nrow = 1, scales = "free_y") +
   labs(
-    y = "Number of violent crime complaints",
+    y = "Number of property crime complaints",
     x = "Distance from the boundary"
   )
 
