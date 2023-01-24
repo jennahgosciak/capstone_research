@@ -24,6 +24,7 @@ library(tmap)
 ```{r, include=F}
 # download data
 ar_oz <- read_csv("../00_data/ar_oz.csv")
+ar_oz
 
 cp_oz <- read_csv("../00_data/cp_oz.csv")
 
@@ -63,5 +64,21 @@ tm_shape(cb) + tm_polygons() +
   tm_shape(oz_treat) + tm_polygons(col = "grey") + 
   tm_shape(oz_bound) + tm_lines(col = "red")
 ```
+
+```{r}
+set.seed(1088) # set a seed to make the results replicable
+points_samp.sf <- sf::st_sample(polygon_full.sf, 1000)
+points_samp.sf <- sf::st_sf(points_samp.sf) # make it an sf object bc st_sample only created the geometry list-column (sfc)
+points_samp.sf$id <- 1:nrow(points_samp.sf) # add a unique ID to each observation
+# visualise results together with the line that represents our RDD cut-off
+tm_shape(ar_oz) + tm_dots() + tm_shape(oz_bound) + tm_lines(col = "red")
+```
+
+```{r}
+points_samp.sf$treated <- assign_treated(points_samp.sf, polygon_treated.sf, id = "id")
+tm_shape(points_samp.sf) + tm_dots("treated", palette = "Set1") + tm_shape(cut_off.sf) + tm_lines(col = "red")
+```
+
+
 
 

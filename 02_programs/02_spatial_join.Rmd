@@ -265,10 +265,10 @@ ar_oz_acs %>%
   mutate(distance_boundary = as.numeric(distance_boundary)) %>%
   write_csv("../00_data/ar_oz.csv")
 
-# ar_oz %>%
-#   st_write("../00_data/ar_oz.geojson",
-#     delete_dsn = TRUE
-#   )
+ar_oz %>%
+  st_write("../00_data/ar_oz.geojson",
+    delete_dsn = TRUE
+  )
 ```
 
 ```{r}
