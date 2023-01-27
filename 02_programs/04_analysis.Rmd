@@ -23,7 +23,7 @@ library(tmap)
 
 ```{r, include=F}
 # download data
-ar_oz <- read_csv("../00_data/ar_oz.csv")
+ar_oz <- st_read("../00_data/ar_oz.geojson")
 ar_oz
 
 cp_oz <- read_csv("../00_data/cp_oz.csv")

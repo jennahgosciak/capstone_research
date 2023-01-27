@@ -43,6 +43,7 @@ cb_adj %>%
 cb_adj %>%
   as.data.frame() %>%
   write_csv("../00_data/cb_adjacent.csv")
+
 ```
 ```{r}
 cb_adj %>%
@@ -103,11 +104,11 @@ cb_adj_acs_tract %>%
 cb_adj_acs_bg %>%
   write_csv("../00_data/cb_adj_acs_bg.csv")
 
-cb_adj_acs_tract %>%
-  st_write("../00_data/cb_adj_acs.geojson", dsn_delete = T)
+cb_adj %>%
+  st_write("../00_data/cb_adj_acs.geojson", delete_dsn = T)
 
 cb_adj_acs_bg %>%
-  st_write("../00_data/cb_adj_acs_bg.geojson", dsn_delete = T)
+  st_write("../00_data/cb_adj_acs_bg.geojson", delete_dsn = T)
 
 cb_adj_acs %>%
   head()
