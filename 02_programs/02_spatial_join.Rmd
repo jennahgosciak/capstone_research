@@ -21,6 +21,33 @@ nyc_oz <- st_read("../00_data/nyc_oz.geojson") %>%
   # convert to state plan coordinate system, feet
   st_transform(2263)
 ```
+```{r}
+# load lion
+lion <- st_read("../00_data/nyclion_22c/lion/lion.gdb", layer="lion")
+lion_bf <- lion %>% 
+  select(SegmentID, LBlockFaceID, RBlockFaceID) %>% 
+  rename_all(~str_to_lower(.)) %>% 
+  mutate(bf_id = str_c(lblockfaceid, rblockfaceid)) %>% 
+  filter(!is.na(lblockfaceid) & !is.na(rblockfaceid)) %>% 
+  group_by(segmentid) %>% 
+  filter(row_number() == 1) %>% 
+  ungroup()
+
+lion <- st_cast(lion, "MULTILINESTRING")
+lion <- st_make_valid(lion)
+lion_bf_lines <- lion %>%
+  rename_all(~str_to_lower(.)) %>% 
+  mutate(bf_id = str_c(lblockfaceid, rblockfaceid)) %>% 
+  filter(!is.na(lblockfaceid) & !is.na(rblockfaceid)) %>% 
+  group_by(bf_id) %>% 
+  summarize(shape = st_union(shape)) %>% 
+  ungroup() 
+
+lion_bf %>% 
+  as.data.frame() %>% 
+  head()
+```
+
 
 ```{r, message = F}
 # load census tracts and census blocks
