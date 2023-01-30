@@ -10,12 +10,13 @@ library(tidyverse)
 library(sf)
 library(lubridate)
 library(zoo)
-library("lmtest")
-library("sandwich")
-library("wesanderson")
-library("SpatialRDD")
-library("rdrobust")
+library(lmtest)
+library(sandwich)
+library(wesanderson)
+library(SpatialRDD)
+library(rdrobust)
 library(stargazer)
+library(lfe)
 ```
 
 # Load Data
@@ -69,7 +70,7 @@ ar_oz2 <- ar_oz %>%
   # note: calculating this at the Census block level
   mutate(post = if_else(arrest_month_yr >= mdy("04-01-2018"), 1, 0)) %>% 
   group_by(
-    GEOID_b, post, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
+    GEOID_b, post, year, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
     pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64, buffer
   ) %>%
   summarize(violent_ellen = sum(violent_ellen, na.rm = T),
@@ -77,7 +78,7 @@ ar_oz2 <- ar_oz %>%
             distance_boundary = mean(distance_boundary, na.rm = T)) %>%
   mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag))
 
-stopifnot(eeptools::isid(ar_oz2, c("GEOID_b", "post")))
+stopifnot(eeptools::isid(ar_oz2, c("GEOID_b", "post", "year")))
 ```
 
 ```{r}
@@ -86,7 +87,7 @@ bws <- rdbwselect(ar_oz2$violent_ellen, ar_oz2$distance_boundary, c = 0,
                   kernel = "tri", bwselect="mserd")
 
 summary(rdrobust(ar_oz2$violent_ellen, ar_oz2$distance_boundary, c = 0, masspoints="adjust",
-                 covs = cbind(ar_oz2$post)))
+                 covs = ar_oz2$post + ar_oz2$year))
 
 ```
 ```{r}
@@ -127,15 +128,16 @@ ar_oz2 %>%
 df_rd <- ar_oz2 %>% 
   filter(!is.na(violent_ellen)) %>% 
   mutate(treatment = if_else(DESIGNATED == T, 1, 0),
-         treatment_dist = distance_boundary * treatment)
+         treatment_dist = distance_boundary * treatment) %>% 
+  filter(post == 1)
 
 df_rd$cutoff<-NULL
 df_rd$bandwidth<-NULL
 df_rd$kw<-NULL
 
-bws <- rdbwselect(df_rd$violent_ellen, df_rd$distance_boundary, c = 0,
+bws <- rdbwselect(df_rd$violent_ellen, df_rd$distance_boundary, p = 1, c = 0,
                   kernel = "tri", bwselect="mserd", 
-                  covs = df_rd$post)
+                  covs = df_rd$post + df_rd$year)
 
 df_rd$bandwidth <- bws$bws[1]
 df_rd$cutoff <- 0
@@ -148,8 +150,7 @@ df_rd$kw[df_rd$distance_boundary > (df_rd$cutoff + df_rd$bandwidth) |
 
 
 ```{r}
-library(lfe)
-model1 <- felm(df_rd$violent_ellen[df_rd$kw > 0] ~ distance_boundary + treatment + treatment_dist + post,
+model1 <- felm(df_rd$violent_ellen[df_rd$kw > 0] ~ distance_boundary + treatment + treatment_dist | year,
                data = df_rd[df_rd$kw > 0, ], weights = df_rd$kw[df_rd$kw > 0])
 
 summary(model1)
