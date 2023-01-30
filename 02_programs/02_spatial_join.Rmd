@@ -28,6 +28,7 @@ lion_bf <- lion %>%
   select(SegmentID, LBlockFaceID, RBlockFaceID) %>% 
   rename_all(~str_to_lower(.)) %>% 
   mutate(bf_id = str_c(lblockfaceid, rblockfaceid)) %>% 
+  filter(str_trim(bf_id) != "") %>% 
   filter(!is.na(lblockfaceid) & !is.na(rblockfaceid)) %>% 
   group_by(segmentid) %>% 
   filter(row_number() == 1) %>% 
@@ -39,13 +40,13 @@ lion_bf_lines <- lion %>%
   rename_all(~str_to_lower(.)) %>% 
   mutate(bf_id = str_c(lblockfaceid, rblockfaceid)) %>% 
   filter(!is.na(lblockfaceid) & !is.na(rblockfaceid)) %>% 
+  filter(str_trim(bf_id) != "") %>% 
   group_by(bf_id) %>% 
   summarize(shape = st_union(shape)) %>% 
   ungroup() 
 
-lion_bf %>% 
-  as.data.frame() %>% 
-  head()
+lion_bf_lines %>% 
+  st_write("../00_data/lion_bf_lines.geojson", dsn_delete = T)
 ```
 
 
@@ -94,8 +95,34 @@ ar_sf <- ar %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>%
   # convert to projected coordinate system, state plan ny, feet
   st_transform(2263)
+```
 
-ar_sf
+```{r}
+# plotting bound box
+bound_box <- ar_sf %>% 
+  filter(arrest_precinct == 14, arrest_boro == "M") %>% 
+  arrange(x_coord_cd) %>% 
+  head(1000) %>% 
+  st_bbox()
+
+lion_crop <- lion_bf_lines %>% 
+  filter(str_trim(bf_id) != "") %>% 
+  st_crop(bound_box) %>% 
+  st_transform(2263) %>% 
+  st_buffer(10)
+
+ar_sf_crop <- ar_sf  %>% 
+  st_crop(bound_box) %>% 
+  st_join(lion_crop, left = T)
+
+ar_sf_crop %>% 
+  ggplot() +
+  geom_sf(data = lion_crop, color = 'black',
+          linewidth = 0.7,
+          aes(fill = bf_id)) +
+  geom_sf() +
+  theme_void() +
+  theme(legend.position = 'none')
 ```
 ```{r}
 # load shootings
@@ -161,17 +188,37 @@ cb_adj <- read_csv("../00_data/cb_adjacent.csv")
 ```{r}
 # spatial joins
 ar_oz <- ar_sf %>%
-  st_join(cb, left = TRUE) %>%
-  st_join(oz_buffer, left = TRUE) %>%
-  mutate(distance_boundary = st_distance(ar_sf, oz_bound))
+  st_join(lion_bf_lines %>% 
+            st_buffer(10), left = T)
+
+# %>% 
+#   st_join(cb, left = TRUE) %>%
+#   st_join(oz_buffer, left = TRUE) %>%
+#   mutate(distance_boundary = st_distance(ar_sf, oz_bound))
+
+# ar_oz %>%
+#   as.data.frame() %>%
+#   group_by(DESIGNATED) %>%
+#   summarize(n = n())
 
 ar_oz %>%
-  as.data.frame() %>%
-  group_by(DESIGNATED) %>%
-  summarize(n = n())
+  as.data.frame() %>% 
+  mutate(isna_bf_id = if_else(is.na(bf_id), 1, 0)) %>% 
+  summarize(missing_bf_id = mean(isna_bf_id))
 
-ar_oz %>%
-  head()
+ar_oz %>% 
+  as.data.frame() %>% 
+  group_by(arrest_key, arrest_date) %>% 
+  summarize(n = n()) %>% 
+  ungroup() %>% 
+  summarize(mean_n = mean(n))
+
+ar_sf %>% 
+  as.data.frame() %>% 
+  group_by(arrest_key, arrest_date) %>% 
+  summarize(n = n()) %>% 
+  ungroup() %>% 
+  summarize(mean_n = mean(n))
 
 stopifnot(nrow(as.data.frame(ar_sf)) == nrow(as.data.frame(ar_oz)))
 ```
