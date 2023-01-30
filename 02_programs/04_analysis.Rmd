@@ -16,23 +16,20 @@ library("wesanderson")
 library("SpatialRDD")
 library("rdrobust")
 library(stargazer)
-library(tmap)
 ```
 
 # Load Data
 
 ```{r, include=F}
 # download data
-ar_oz <- st_read("../00_data/ar_oz.geojson")
-ar_oz
-
+ar_oz <- read_csv("../00_data/ar_oz.csv")
 cp_oz <- read_csv("../00_data/cp_oz.csv")
-
 st_oz <- read_csv("../00_data/st_oz.csv")
 
 ar_oz %>%
   head()
-
+```
+```{r}
 # load varlist
 acs_varlist <- readxl::read_excel("../00_data/acs_varlist.xlsx") %>%
   filter(include == 1)
@@ -58,26 +55,35 @@ cb_adj
 ```
 
 ```{r}
-data(cut_off.sf, polygon_full.sf, polygon_treated.sf)
-
-tm_shape(cb) + tm_polygons() + 
-  tm_shape(oz_treat) + tm_polygons(col = "grey") + 
-  tm_shape(oz_bound) + tm_lines(col = "red")
+# attempt at adjusted differences for arrests
+ar_oz2 <- ar_oz %>%
+  mutate(arrest_month_yr = as.Date(
+    str_c(month(arrest_date), 1, year(arrest_date), sep = "-"),
+    "%m-%d-%Y"
+  )) %>%
+  mutate(year = year(arrest_month_yr),
+         treatment = if_else(DESIGNATED == T, 1, 0),
+         distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)) %>%
+  # note: calculating this at the Census block level
+  group_by(
+    GEOID_b, arrest_month_yr, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
+    pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64, buffer
+  ) %>%
+  summarize(violent_ellen = sum(violent_ellen, na.rm = T),
+            property_ellen = sum(property_ellen, na.rm = T),
+            distance_boundary = round(mean(distance_boundary, na.rm = T))) %>%
+  filter(!is.na(DESIGNATED) & buffer == 1) %>%
+  mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag))
 ```
 
 ```{r}
-set.seed(1088) # set a seed to make the results replicable
-points_samp.sf <- sf::st_sample(polygon_full.sf, 1000)
-points_samp.sf <- sf::st_sf(points_samp.sf) # make it an sf object bc st_sample only created the geometry list-column (sfc)
-points_samp.sf$id <- 1:nrow(points_samp.sf) # add a unique ID to each observation
-# visualise results together with the line that represents our RDD cut-off
-tm_shape(ar_oz) + tm_dots() + tm_shape(oz_bound) + tm_lines(col = "red")
+# bws <- rdbwselect(ar_oz2$violent_ellen, ar_oz2$distance_boundary, p=1, c = 0,
+#                   kernel = "tri", bwselect="mserd")
+
+summary(rdrobust(ar_oz2$violent_ellen, ar_oz2$distance_boundary, c = 0))
 ```
 
-```{r}
-points_samp.sf$treated <- assign_treated(points_samp.sf, polygon_treated.sf, id = "id")
-tm_shape(points_samp.sf) + tm_dots("treated", palette = "Set1") + tm_shape(cut_off.sf) + tm_lines(col = "red")
-```
+
 
 
 
