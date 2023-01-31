@@ -13,10 +13,8 @@ library(zoo)
 library(lmtest)
 library(sandwich)
 library(wesanderson)
-library(SpatialRDD)
 library(rdrobust)
 library(stargazer)
-library(lfe)
 ```
 
 # Load Data
@@ -41,18 +39,6 @@ names(acs_vars) <- acs_varlist$description
 
 constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
 urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
-
-oz_bound <- st_read("../00_data/oz_bound.geojson")
-oz <- st_read("../00_data/nyc_oz.geojson")
-
-oz_treat <- oz %>% 
-  filter(DESIGNATED == "True")
-
-cb <- st_read("https://data.cityofnewyork.us/resource/twhy-dzjp.geojson?$limit=1000000") %>%
-  st_transform(2263)
-
-cb_adj <- st_read("../00_data/cb_adjacent.geojson")
-cb_adj
 ```
 
 ```{r}
