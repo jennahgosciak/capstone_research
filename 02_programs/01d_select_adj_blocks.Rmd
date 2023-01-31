@@ -15,8 +15,8 @@ library(tidycensus)
 library(magrittr)
 library(sf)
 library(wesanderson) # for colors :)
-library("lmtest")
-library("sandwich")
+library(lmtest)
+library(sandwich)
 library(readxl)
 ```
 ```{r}

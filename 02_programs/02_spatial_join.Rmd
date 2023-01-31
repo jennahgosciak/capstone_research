@@ -43,9 +43,16 @@ lion_bf_lines <- lion %>%
   summarize(shape = st_union(shape)) %>% 
   ungroup() 
 
-lion_bf %>% 
+lion_sf_combined <- lion_bf_lines %>%
+  st_buffer(singleSide = T, dist = 10) %>%
   as.data.frame() %>% 
-  head()
+  left_join(lion_bf_lines %>%
+              st_buffer(singleSide = T, dist = -10),
+            by="bf_id") %>%
+  rowwise() %>% 
+  mutate(shape = list(st_geometrycollection(c(shape.x,shape.y)))) %>%
+  select(-shape.x, -shape.y) %>%
+  st_set_geometry("shape")
 ```
 
 
@@ -157,18 +164,32 @@ oz_bound %>%
 cb_adj <- read_csv("../00_data/cb_adjacent.csv")
 ```
 
+```{r}
+lion_sf_combined <- lion_sf_combined %>% 
+  ungroup() %>% 
+  st_set_crs(2263) %>%
+  st_make_valid() %>% 
+  group_by(bf_id) %>% 
+  summarize(shape = st_union(shape)) %>% 
+  ungroup()
+
+lion_sf_combined
+```
+
 
 ```{r}
 # spatial joins
 ar_oz <- ar_sf %>%
-  st_join(cb, left = TRUE) %>%
-  st_join(oz_buffer, left = TRUE) %>%
-  mutate(distance_boundary = st_distance(ar_sf, oz_bound))
+  st_join(lion_sf_combined, left = TRUE)
+# %>% 
+#   st_join(cb, left = TRUE) %>%
+#   st_join(oz_buffer, left = TRUE) %>%
+#   mutate(distance_boundary = st_distance(ar_sf, oz_bound))
 
-ar_oz %>%
-  as.data.frame() %>%
-  group_by(DESIGNATED) %>%
-  summarize(n = n())
+# ar_oz %>%
+#   as.data.frame() %>%
+#   group_by(DESIGNATED) %>%
+#   summarize(n = n())
 
 ar_oz %>%
   head()
