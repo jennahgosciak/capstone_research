@@ -103,12 +103,29 @@ cp_oz2 %>%
 ```{r}
 # Winsorize
 ar_oz2$violent_ellen_winsorize <- Winsorize(ar_oz2$violent_ellen,
-            probs = c(0.005, 0.995))
+            probs = c(0.01, 0.99))
 
 ar_oz2$property_ellen_winsorize <- Winsorize(ar_oz2$property_ellen,
-            probs = c(0.005, 0.995))
+            probs = c(0.01, 0.99))
 
 # Examples but cut later  
+ar_oz2 %>% 
+  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>% 
+  filter(!is.na(treatment)) %>% 
+  filter(abs(distance_boundary) < 193) %>% 
+  ggplot(aes(x = distance_boundary, y = violent_ellen_winsorize, group=DESIGNATED, color=DESIGNATED)) +
+  geom_point(alpha=0.25) +
+  #geom_smooth(method="lm") +
+  theme_classic() +
+  facet_wrap(~if_else(post==1, "(1) Post", ("(0) Pre")))
+
+points <- ar_oz2 %>% 
+  filter(abs(distance_boundary) < 193, violent_ellen_winsorize < 15) %>% 
+  mutate(distance_boundary = round(distance_boundary, 1)) %>% 
+  group_by(distance_boundary) %>% 
+  summarize(violent_ellen_winsorize = mean(violent_ellen_winsorize),
+            num_obs = n())
+
 ar_oz2 %>% 
   mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>% 
   filter(!is.na(treatment)) %>% 
