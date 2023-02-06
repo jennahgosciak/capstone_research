@@ -1,0 +1,90 @@
+---
+title: "Report Figures"
+author: "Adelaide Currin, Haowei Wang, Jennah Gosciak, Yiping Zuo"
+date: "2023-01-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(sf)
+library(lubridate)
+library(zoo)
+library(lmtest)
+library(sandwich)
+library(wesanderson)
+library(rdrobust)
+library(stargazer)
+```
+
+# Load Data
+
+```{r, include=F}
+# download data
+az_oz2 <- read_csv("../00_data/analysis_file_arrest.csv")
+cp_oz2 <- read_csv("../00_data/analysis_file_complaints.csv")
+
+ar_oz2 %>%
+  head()
+```
+```{r}
+# load varlist
+acs_varlist <- readxl::read_excel("../00_data/acs_varlist.xlsx") %>%
+  filter(include == 1)
+acs_varlist
+
+acs_vars <- acs_varlist$variable
+names(acs_vars) <- acs_varlist$description
+
+constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
+urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
+```
+
+```{r}
+bws <- rdbwselect(ar_oz2$violent_ellen, ar_oz2$distance_boundary, c = 0,
+                  kernel = "tri", bwselect="mserd")
+
+summary(rdrobust(ar_oz2$violent_ellen, ar_oz2$distance_boundary, c = 0, masspoints="adjust"))
+```
+```{r}
+ar_oz2 %>% 
+  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>% 
+  filter(!is.na(treatment)) %>% 
+  filter(abs(distance_boundary) < 193) %>% 
+  ggplot(aes(x = distance_boundary, y = violent_ellen, group=DESIGNATED, color=DESIGNATED)) +
+  geom_point(alpha=0.25) +
+  #geom_smooth(method="lm") +
+  theme_classic() +
+  facet_wrap(~if_else(post==1, "(1) Post", ("(0) Pre")))
+
+points <- ar_oz2 %>% 
+  filter(abs(distance_boundary) < 193, violent_ellen < 15) %>% 
+  mutate(distance_boundary = round(distance_boundary, 1)) %>% 
+  group_by(distance_boundary) %>% 
+  summarize(violent_ellen = mean(violent_ellen),
+            num_obs = n())
+
+ar_oz2 %>% 
+  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>% 
+  filter(abs(distance_boundary) < 193) %>% 
+  ggplot(aes(x = distance_boundary, y = violent_ellen, group=DESIGNATED, color=DESIGNATED)) +
+  geom_point(data = points, aes(x = distance_boundary,
+                                y = violent_ellen, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  facet_wrap(~post)
+
+# checking treatment
+ar_oz2 %>% 
+  mutate(treatment = if_else(distance_boundary >= 0, 1, 0)) %>% 
+  group_by(treatment, DESIGNATED) %>% 
+  summarize(n = n())
+```
+
+
+
+
+
+
+
+
+
