@@ -567,7 +567,7 @@ create_adjusted_plots <- function(df, outcomes, labs, fname, date_var) {
     scale_color_manual(values = wes_palette("Darjeeling1")) +
     theme_classic() +
     labs(
-      y = "Residual",
+      y = "Residual of incidents per block",
       x = "Month-year",
       color = "Designation"
     ) +
@@ -880,7 +880,7 @@ ar_oz_plots %>%
   facet_wrap(~post, nrow = 1, scales = "free_y") +
   labs(
     y = "Number of violent crime arrests",
-    x = "Distance from the boundary"
+    x = "Distance from the boundary (feet)"
   )
 
 ggsave("../03_output/distance_his_ar_violent.png")
@@ -895,7 +895,7 @@ ar_oz_plots %>%
   facet_wrap(~post, nrow = 1, scales = "free_y") +
   labs(
     y = "Number of property crime arrests",
-    x = "Distance from the boundary"
+    x = "Distance from the boundary (feet)"
   )
 
 ggsave("../03_output/distance_his_ar_prop.png")
@@ -910,7 +910,7 @@ cp_oz_plots %>%
   facet_wrap(~post, nrow = 1, scales = "free_y") +
   labs(
     y = "Number of violent crime complaints",
-    x = "Distance from the boundary"
+    x = "Distance from the boundary (feet)"
   )
 
 ggsave("../03_output/distance_his_cp_violent.png")
@@ -925,7 +925,7 @@ cp_oz_plots %>%
   facet_wrap(~post, nrow = 1, scales = "free_y") +
   labs(
     y = "Number of property crime complaints",
-    x = "Distance from the boundary"
+    x = "Distance from the boundary (feet)"
   )
 
 ggsave("../03_output/distance_his_cp_prop.png")
