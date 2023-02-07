@@ -87,40 +87,70 @@ tidy.rdrobust <- function(outcome, x, outcome_name, p = 1, covs = NULL, ...) {
 ```
 
 ```{r}
-outcome_data <- list(ar_oz2[["violent_ellen_ar"]], ar_oz2[["property_ellen"]])
-running_var <- list(ar_oz2[["distance_boundary"]])
-outcomes <- c("overall_violent", "overall_property")
-covs <- ar_oz2[, constructs]
-
 run_model_set <- function(outcome_data, running_var, outcomes, p, covs) {
-  return(pmap_dfr(
-    list(outcome_data, running_var, outcomes),
-    ~ tidy.rdrobust(..1, ..2, ..3, p = p)
+  # vector to drop missing covariates
+  keep_cov <- covs %>% 
+    is.na() %>% 
+    rowSums() %>%
+    magrittr::equals(0)
+
+  # drop missing covariate values
+  outcome_data_cov <- outcome_data[keep_cov,]
+  running_var_cov <- running_var[keep_cov]
+  covs <- covs[keep_cov, ]
+  
+  return(map2_dfr(
+    outcome_data, outcomes,
+    ~ tidy.rdrobust(.x, running_var, .y, p = p)
   ) %>%
-    bind_rows(pmap_dfr(
-      list(outcome_data, running_var, outcomes),
-      ~ tidy.rdrobust(..1, ..2, ..3, p = p, covs = covs)
+    bind_rows(map2_dfr(
+      outcome_data_cov, outcomes,
+      ~ tidy.rdrobust(.x, running_var_cov, .y, p = p, covs = covs)
     )))
 }
+```
 
+```{r}
+# define data and outcomes
+outcomes_ar <- map(c("violent_ellen_winsorize_ar_", "property_ellen_winsorize_ar_"), ~str_c(., c(1:7))) %>%
+  unlist()
+outcome_data_ar <- ar_oz2[, outcomes_ar]
+running_var_ar <- ar_oz2[["distance_boundary"]]
+covs_ar <- ar_oz2[, constructs]
+
+outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"), ~str_c(., c(1:7))) %>%
+  unlist()
+outcome_data_cp <- cp_oz2[, outcomes_cp]
+running_var_cp <- cp_oz2[["distance_boundary"]]
+covs_cp <- cp_oz2[, constructs]
+```
+
+```{r}
 output <- map_dfr(
   c(1:4),
-  ~ run_model_set(outcome_data, running_var, outcomes, p = ., covs)
-)
-output
-
-output %>%
+  ~run_model_set(outcome_data_ar, running_var_ar, outcomes_ar, p = ., covs_ar)
+) %>% 
+  bind_rows(map_dfr(
+  c(1:4),
+  ~run_model_set(outcome_data_cp, running_var_cp, outcomes_cp, p = ., covs_cp)
+))
+  
+output %>% 
+  separate(outcome, c("crime_type", "measurement", "winsorize", "arrest_or_complaint", "quarter")) %>% 
+  select(-c(measurement, winsorize)) %>%
+  select(crime_type, arrest_or_complaint, term, order, covs, quarter, everything()) %>% 
+  arrange(crime_type, arrest_or_complaint, term, order, covs, quarter) %>% 
   write_csv(str_glue("../03_output/results_{Sys.Date()}.csv"))
 ```
 
 ```{r}
 # creating plots
-walk(c(1:4), ~ rdplot(outcome_data[[1]], running_var[[1]],
+walk(c(1:4), ~ rdplot(outcome_data_ar[[1]], running_var_ar[[1]],
   p = ., title = str_glue("RD Plot for p={.}"),
   x.label = "distance", y.label = outcomes[1]
 ))
 
-walk(c(1:4), ~ rdplot(outcome_data[[1]], running_var[[1]], p = ., covs = covs, title = str_glue("RD Plot w/ covariates for p={.}"), x.label = "distance", y.label = outcomes[1]))
+# walk(c(1:4), ~ rdplot(outcome_data_ar[[1]], running_var_ar[[1]], p = ., covs = covs_ar, title = str_glue("RD Plot w/ covariates for p={.}"), x.label = "distance", y.label = outcomes[1]))
 ```
 
 ```{r}
