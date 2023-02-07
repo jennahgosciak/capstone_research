@@ -24,11 +24,10 @@ library(gt)
 
 ```{r, include=F}
 # download data
-ar_oz <- read_csv("../00_data/ar_oz.csv")
-cp_oz <- read_csv("../00_data/cp_oz.csv")
-st_oz <- read_csv("../00_data/st_oz.csv")
+az_oz2 <- read_csv("../00_data/analysis_file_arrest.csv")
+cp_oz2 <- read_csv("../00_data/analysis_file_complaints.csv")
 
-ar_oz %>%
+ar_oz2 %>%
   head()
 ```
 ```{r}
@@ -42,35 +41,6 @@ names(acs_vars) <- acs_varlist$description
 
 constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
 urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
-```
-
-```{r}
-# attempt at adjusted differences for arrests
-ar_oz2 <- ar_oz %>%
-  mutate(arrest_month_yr = as.Date(
-    str_c(month(arrest_date), 1, year(arrest_date), sep = "-"),
-    "%m-%d-%Y"
-  )) %>%
-  mutate(year = year(arrest_month_yr),
-         month = month(arrest_month_yr),
-         treatment = if_else(DESIGNATED == T, 1, 0),
-         distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)) %>%
-  filter(!is.na(DESIGNATED) & buffer == 1) %>%
-  # note: calculating this at the Census block level
-  mutate(post = if_else(arrest_month_yr >= mdy("04-01-2018"), 1, 0)) %>% 
-  group_by(
-    GEOID_b, post, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
-    pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64, buffer
-  ) %>%
-  summarize(violent_ellen = sum(violent_ellen, na.rm = T),
-            property_ellen = sum(property_ellen, na.rm = T),
-            distance_boundary = mean(distance_boundary, na.rm = T)) %>%
-  mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag)) %>% 
-  filter(post == 1)
-
-stopifnot(eeptools::isid(ar_oz2, c("GEOID_b", "post")))
-
-# when write methods section, cite paper
 ```
 
 ```{r}
