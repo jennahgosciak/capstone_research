@@ -44,16 +44,6 @@ urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
 ```
 
 ```{r}
-bws <- rdbwselect(ar_oz2$violent_ellen, ar_oz2$distance_boundary,
-  c = 0,
-  kernel = "tri", bwselect = "mserd"
-)
-
-model2 <- rdrobust(ar_oz2$violent_ellen, ar_oz2$distance_boundary, c = 0, masspoints = "adjust", p = 2)
-model3 <- rdrobust(ar_oz2$violent_ellen, ar_oz2$distance_boundary, c = 0, masspoints = "adjust", p = 3)
-```
-
-```{r}
 tidy.rdrobust <- function(outcome, x, outcome_name, p = 1, covs = NULL, ...) {
   if (!is.null(covs)) {
     object <- rdrobust(outcome, x,
@@ -97,7 +87,7 @@ tidy.rdrobust <- function(outcome, x, outcome_name, p = 1, covs = NULL, ...) {
 ```
 
 ```{r}
-outcome_data <- list(ar_oz2[["violent_ellen"]], ar_oz2[["property_ellen"]])
+outcome_data <- list(ar_oz2[["violent_ellen_ar"]], ar_oz2[["property_ellen"]])
 running_var <- list(ar_oz2[["distance_boundary"]])
 outcomes <- c("overall_violent", "overall_property")
 covs <- ar_oz2[, constructs]

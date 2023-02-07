@@ -43,20 +43,16 @@ ar_oz
 # attempt at adjusted differences for arrests
 ar_oz2 <- ar_oz %>%
   mutate(quarter = case_when(
-    month(arrest_date) %in% c(5, 6, 7) & year(arrest_date) == 2018 ~ 1,
-    month(arrest_date) %in% c(8, 9, 10) & year(arrest_date) == 2018 ~ 2,
-    (month(arrest_date) %in% c(11, 12) & year(arrest_date) == 2018) |
-      (month(arrest_date) == 1 & year(arrest_date) == 2019) ~ 3,
-    month(arrest_date) %in% c(2, 3, 4) & year(arrest_date) == 2019 ~ 4,
-    month(arrest_date) %in% c(5, 6, 7) & year(arrest_date) == 2019 ~ 5,
-    month(arrest_date) %in% c(8, 9, 10) & year(arrest_date) == 2019 ~ 6,
-    (month(arrest_date) %in% c(11, 12) & year(arrest_date) == 2019) |
-      (month(arrest_date) == 1 & year(arrest_date) == 2020) ~ 7,
-    month(arrest_date) %in% c(2, 3, 4) & year(arrest_date) == 2020 ~ 8,
-    month(arrest_date) %in% c(5, 6, 7) & year(arrest_date) == 2020 ~ 9,
-    month(arrest_date) %in% c(8, 9, 10) & year(arrest_date) == 2020 ~ 10,
-    (month(arrest_date) %in% c(11, 12) & year(arrest_date) == 2020) |
-      (month(arrest_date) == 1 & year(arrest_date) == 2021) ~ 11
+    arrest_date >= mdy("06-01-2018") & arrest_date < mdy("09-01-2018") ~ 1,
+    arrest_date >= mdy("09-01-2018") & arrest_date < mdy("12-01-2018") ~ 2,
+    arrest_date >= mdy("12-01-2018") & arrest_date < mdy("3-01-2019") ~ 3,
+    arrest_date >= mdy("3-01-2018") & arrest_date < mdy("6-01-2019") ~ 4,
+    arrest_date >= mdy("6-01-2018") & arrest_date < mdy("9-01-2019") ~ 5,
+    arrest_date >= mdy("9-01-2018") & arrest_date < mdy("12-01-2019") ~ 6,
+    arrest_date >= mdy("12-01-2019") & arrest_date < mdy("3-01-2020") ~ 7,
+    arrest_date >= mdy("3-01-2018") & arrest_date < mdy("6-01-2020") ~ 8,
+    arrest_date >= mdy("6-01-2018") & arrest_date < mdy("9-01-2020") ~ 9,
+    arrest_date >= mdy("9-01-2020") & arrest_date < mdy("12-01-2020") ~ 10
   )) %>%
   mutate(
     treatment = if_else(DESIGNATED == T, 1, 0),
@@ -77,27 +73,23 @@ ar_oz2 <- ar_oz %>%
   mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag)) %>%
   filter(post == 1 & !is.na(quarter))
 
-stopifnot(eeptools::isid(ar_oz2, c("GEOID_b", "post")))
+stopifnot(eeptools::isid(ar_oz2, c("GEOID_b", "post", "quarter")))
 ```
 
 ```{r}
 # attempt at adjusted differences for complaints
 cp_oz2 <- cp_oz %>%
   mutate(quarter = case_when(
-    month(cmplnt_fr_dt) %in% c(5, 6, 7) & year(cmplnt_fr_dt) == 2018 ~ 1,
-    month(cmplnt_fr_dt) %in% c(8, 9, 10) & year(cmplnt_fr_dt) == 2018 ~ 2,
-    (month(cmplnt_fr_dt) %in% c(11, 12) & year(cmplnt_fr_dt) == 2018) |
-      (month(cmplnt_fr_dt) == 1 & year(cmplnt_fr_dt) == 2019) ~ 3,
-    month(cmplnt_fr_dt) %in% c(2, 3, 4) & year(cmplnt_fr_dt) == 2019 ~ 4,
-    month(cmplnt_fr_dt) %in% c(5, 6, 7) & year(cmplnt_fr_dt) == 2019 ~ 5,
-    month(cmplnt_fr_dt) %in% c(8, 9, 10) & year(cmplnt_fr_dt) == 2019 ~ 6,
-    (month(cmplnt_fr_dt) %in% c(11, 12) & year(cmplnt_fr_dt) == 2019) |
-      (month(cmplnt_fr_dt) == 1 & year(cmplnt_fr_dt) == 2020) ~ 7,
-    month(cmplnt_fr_dt) %in% c(2, 3, 4) & year(cmplnt_fr_dt) == 2020 ~ 8,
-    month(cmplnt_fr_dt) %in% c(5, 6, 7) & year(cmplnt_fr_dt) == 2020 ~ 9,
-    month(cmplnt_fr_dt) %in% c(8, 9, 10) & year(cmplnt_fr_dt) == 2020 ~ 10,
-    (month(cmplnt_fr_dt) %in% c(11, 12) & year(cmplnt_fr_dt) == 2020) |
-      (month(cmplnt_fr_dt) == 1 & year(cmplnt_fr_dt) == 2021) ~ 11
+    cmplnt_fr_dt >= mdy("06-01-2018") & cmplnt_fr_dt < mdy("09-01-2018") ~ 1,
+    cmplnt_fr_dt >= mdy("09-01-2018") & cmplnt_fr_dt < mdy("12-01-2018") ~ 2,
+    cmplnt_fr_dt >= mdy("12-01-2018") & cmplnt_fr_dt < mdy("3-01-2019") ~ 3,
+    cmplnt_fr_dt >= mdy("3-01-2018") & cmplnt_fr_dt < mdy("6-01-2019") ~ 4,
+    cmplnt_fr_dt >= mdy("6-01-2018") & cmplnt_fr_dt < mdy("9-01-2019") ~ 5,
+    cmplnt_fr_dt >= mdy("9-01-2018") & cmplnt_fr_dt < mdy("12-01-2019") ~ 6,
+    cmplnt_fr_dt >= mdy("12-01-2019") & cmplnt_fr_dt < mdy("3-01-2020") ~ 7,
+    cmplnt_fr_dt >= mdy("3-01-2018") & cmplnt_fr_dt < mdy("6-01-2020") ~ 8,
+    cmplnt_fr_dt >= mdy("6-01-2018") & cmplnt_fr_dt < mdy("9-01-2020") ~ 9,
+    cmplnt_fr_dt >= mdy("9-01-2020") & cmplnt_fr_dt < mdy("12-01-2020") ~ 10
   )) %>%
   mutate(
     treatment = if_else(DESIGNATED == T, 1, 0),
@@ -118,32 +110,36 @@ cp_oz2 <- cp_oz %>%
   mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag)) %>%
   filter(post == 1 & !is.na(quarter))
 
-stopifnot(eeptools::isid(cp_oz2, c("GEOID_b", "post")))
+stopifnot(eeptools::isid(cp_oz2, c("GEOID_b", "post", "quarter")))
 
 # when write methods section, cite paper
 ```
 
 ```{r}
 # Winsorize
-ar_oz2$violent_ellen_winsorize <- Winsorize(ar_oz2$violent_ellen,
-  probs = c(0.01, 0.99)
-)
+ar_oz2 <- ar_oz2 %>%
+  mutate(
+    violent_ellen_winsorize_ar = Winsorize(violent_ellen, probs = c(0.01, 0.99)),
+    property_ellen_winsorize_ar = Winsorize(property_ellen, probs = c(0.01, 0.99))
+  ) %>%
+  pivot_wider(
+    id_cols = c("GEOID_b", "post", constructs, urbanvars), names_from = "quarter", values_from =
+      ends_with("_ar")
+  ) %>%
+  mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
+  mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
 
-ar_oz2$property_ellen_winsorize <- Winsorize(ar_oz2$property_ellen,
-  probs = c(0.01, 0.99)
-)
+cp_oz2 <- cp_oz2 %>%
+  mutate(
+    violent_ellen_winsorize_cp = Winsorize(violent_ellen, probs = c(0.01, 0.99)),
+    property_ellen_winsorize_cp = Winsorize(property_ellen, probs = c(0.01, 0.99))
+  ) %>%
+  pivot_wider(id_cols = c("GEOID_b", "post", constructs, urbanvars), names_from = "quarter", values_from = ends_with("_cp")) %>%
+  mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
+  mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
 ```
 
 ```{r}
-ar_oz2 <- ar_oz2 %>%
-  pivot_wider(
-    id_cols = c("GEOID_b", "post", constructs, urbanvars), names_from = "quarter", values_from =
-      c("violent_ellen_winsorize", "property_ellen_winsorize")
-  )
-
-cp_oz2 %>%
-  pivot_wider(id_cols = c("GEOID_b", "post", constructs, urbanvars), names_from = "quarter", values_from = c("violent_ellen", "property_ellen"))
-
 # write to csv
 ar_oz2 %>%
   write_csv("../00_data/analysis_file_arrest.csv")
@@ -153,7 +149,6 @@ cp_oz2 %>%
 ```
 
 ```{r}
-
 # Examples but cut later
 ar_oz2 %>%
   mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>%
