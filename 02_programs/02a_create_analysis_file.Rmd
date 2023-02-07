@@ -42,80 +42,83 @@ ar_oz
 ```{r}
 # attempt at adjusted differences for arrests
 ar_oz2 <- ar_oz %>%
-  mutate(quarter = case_when(month(arrest_date) %in% c(5, 6, 7) & year(arrest_date) == 2018 ~ 1,
-                             month(arrest_date) %in% c(8, 9, 10) & year(arrest_date) == 2018 ~ 2,
-                             (month(arrest_date) %in% c(11, 12) & year(arrest_date) == 2018) |
-                               (month(arrest_date) == 1 & year(arrest_date) == 2019) ~ 3,
-                             month(arrest_date) %in% c(2, 3, 4) & year(arrest_date) == 2019 ~ 4,
-                             month(arrest_date) %in% c(5, 6, 7) & year(arrest_date) == 2019 ~ 5,
-                             month(arrest_date) %in% c(8, 9, 10) & year(arrest_date) == 2019 ~ 6,
-                             (month(arrest_date) %in% c(11, 12) & year(arrest_date) == 2019) |
-                               (month(arrest_date) == 1 & year(arrest_date) == 2020) ~ 7,
-                             month(arrest_date) %in% c(2, 3, 4) & year(arrest_date) == 2020 ~ 8,
-                             month(arrest_date) %in% c(5, 6, 7) & year(arrest_date) == 2020 ~ 9,
-                             month(arrest_date) %in% c(8, 9, 10) & year(arrest_date) == 2020 ~ 10,
-                             (month(arrest_date) %in% c(11, 12) & year(arrest_date) == 2020) |
-                               (month(arrest_date) == 1 & year(arrest_date) == 2021) ~ 11)) %>%
-  mutate(treatment = if_else(DESIGNATED == T, 1, 0),
-         distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)) %>%
+  mutate(quarter = case_when(
+    month(arrest_date) %in% c(5, 6, 7) & year(arrest_date) == 2018 ~ 1,
+    month(arrest_date) %in% c(8, 9, 10) & year(arrest_date) == 2018 ~ 2,
+    (month(arrest_date) %in% c(11, 12) & year(arrest_date) == 2018) |
+      (month(arrest_date) == 1 & year(arrest_date) == 2019) ~ 3,
+    month(arrest_date) %in% c(2, 3, 4) & year(arrest_date) == 2019 ~ 4,
+    month(arrest_date) %in% c(5, 6, 7) & year(arrest_date) == 2019 ~ 5,
+    month(arrest_date) %in% c(8, 9, 10) & year(arrest_date) == 2019 ~ 6,
+    (month(arrest_date) %in% c(11, 12) & year(arrest_date) == 2019) |
+      (month(arrest_date) == 1 & year(arrest_date) == 2020) ~ 7,
+    month(arrest_date) %in% c(2, 3, 4) & year(arrest_date) == 2020 ~ 8,
+    month(arrest_date) %in% c(5, 6, 7) & year(arrest_date) == 2020 ~ 9,
+    month(arrest_date) %in% c(8, 9, 10) & year(arrest_date) == 2020 ~ 10,
+    (month(arrest_date) %in% c(11, 12) & year(arrest_date) == 2020) |
+      (month(arrest_date) == 1 & year(arrest_date) == 2021) ~ 11
+  )) %>%
+  mutate(
+    treatment = if_else(DESIGNATED == T, 1, 0),
+    distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)
+  ) %>%
   filter(!is.na(DESIGNATED) & buffer == 1) %>%
   # note: calculating this at the Census block level
-  mutate(post = if_else(arrest_date >= mdy("04-01-2018"), 1, 0)) %>% 
+  mutate(post = if_else(arrest_date >= mdy("04-01-2018"), 1, 0)) %>%
   group_by(
     GEOID_b, post, quarter, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
     pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64, buffer
   ) %>%
-  summarize(violent_ellen = sum(violent_ellen, na.rm = T),
-            property_ellen = sum(property_ellen, na.rm = T),
-            distance_boundary = mean(distance_boundary, na.rm = T)) %>%
-  mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag)) %>% 
-  filter(post == 1 & !is.na(quarter)) %>% 
-  pivot_wider(id_cols = c("GEOID_b", "post", constructs, urbanvars), names_from = "quarter", values_from = c("violent_ellen", "property_ellen"))
+  summarize(
+    violent_ellen = sum(violent_ellen, na.rm = T),
+    property_ellen = sum(property_ellen, na.rm = T),
+    distance_boundary = mean(distance_boundary, na.rm = T)
+  ) %>%
+  mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag)) %>%
+  filter(post == 1 & !is.na(quarter))
 
 stopifnot(eeptools::isid(ar_oz2, c("GEOID_b", "post")))
-
-ar_oz2 %>% 
-  write_csv("../00_data/analysis_file_arrest.csv")
-
 ```
 
 ```{r}
 # attempt at adjusted differences for complaints
 cp_oz2 <- cp_oz %>%
-  mutate(quarter = case_when(month(cmplnt_fr_dt) %in% c(5, 6, 7) & year(cmplnt_fr_dt) == 2018 ~ 1,
-                             month(cmplnt_fr_dt) %in% c(8, 9, 10) & year(cmplnt_fr_dt) == 2018 ~ 2,
-                             (month(cmplnt_fr_dt) %in% c(11, 12) & year(cmplnt_fr_dt) == 2018) |
-                               (month(cmplnt_fr_dt) == 1 & year(cmplnt_fr_dt) == 2019) ~ 3,
-                             month(cmplnt_fr_dt) %in% c(2, 3, 4) & year(cmplnt_fr_dt) == 2019 ~ 4,
-                             month(cmplnt_fr_dt) %in% c(5, 6, 7) & year(cmplnt_fr_dt) == 2019 ~ 5,
-                             month(cmplnt_fr_dt) %in% c(8, 9, 10) & year(cmplnt_fr_dt) == 2019 ~ 6,
-                             (month(cmplnt_fr_dt) %in% c(11, 12) & year(cmplnt_fr_dt) == 2019) |
-                               (month(cmplnt_fr_dt) == 1 & year(cmplnt_fr_dt) == 2020) ~ 7,
-                             month(cmplnt_fr_dt) %in% c(2, 3, 4) & year(cmplnt_fr_dt) == 2020 ~ 8,
-                             month(cmplnt_fr_dt) %in% c(5, 6, 7) & year(cmplnt_fr_dt) == 2020 ~ 9,
-                             month(cmplnt_fr_dt) %in% c(8, 9, 10) & year(cmplnt_fr_dt) == 2020 ~ 10,
-                             (month(cmplnt_fr_dt) %in% c(11, 12) & year(cmplnt_fr_dt) == 2020) |
-                               (month(cmplnt_fr_dt) == 1 & year(cmplnt_fr_dt) == 2021) ~ 11)) %>% 
-  mutate(treatment = if_else(DESIGNATED == T, 1, 0),
-         distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)) %>%
+  mutate(quarter = case_when(
+    month(cmplnt_fr_dt) %in% c(5, 6, 7) & year(cmplnt_fr_dt) == 2018 ~ 1,
+    month(cmplnt_fr_dt) %in% c(8, 9, 10) & year(cmplnt_fr_dt) == 2018 ~ 2,
+    (month(cmplnt_fr_dt) %in% c(11, 12) & year(cmplnt_fr_dt) == 2018) |
+      (month(cmplnt_fr_dt) == 1 & year(cmplnt_fr_dt) == 2019) ~ 3,
+    month(cmplnt_fr_dt) %in% c(2, 3, 4) & year(cmplnt_fr_dt) == 2019 ~ 4,
+    month(cmplnt_fr_dt) %in% c(5, 6, 7) & year(cmplnt_fr_dt) == 2019 ~ 5,
+    month(cmplnt_fr_dt) %in% c(8, 9, 10) & year(cmplnt_fr_dt) == 2019 ~ 6,
+    (month(cmplnt_fr_dt) %in% c(11, 12) & year(cmplnt_fr_dt) == 2019) |
+      (month(cmplnt_fr_dt) == 1 & year(cmplnt_fr_dt) == 2020) ~ 7,
+    month(cmplnt_fr_dt) %in% c(2, 3, 4) & year(cmplnt_fr_dt) == 2020 ~ 8,
+    month(cmplnt_fr_dt) %in% c(5, 6, 7) & year(cmplnt_fr_dt) == 2020 ~ 9,
+    month(cmplnt_fr_dt) %in% c(8, 9, 10) & year(cmplnt_fr_dt) == 2020 ~ 10,
+    (month(cmplnt_fr_dt) %in% c(11, 12) & year(cmplnt_fr_dt) == 2020) |
+      (month(cmplnt_fr_dt) == 1 & year(cmplnt_fr_dt) == 2021) ~ 11
+  )) %>%
+  mutate(
+    treatment = if_else(DESIGNATED == T, 1, 0),
+    distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)
+  ) %>%
   filter(!is.na(DESIGNATED) & buffer == 1) %>%
   # note: calculating this at the Census block level
-  mutate(post = if_else(cmplnt_fr_dt >= mdy("04-01-2018"), 1, 0)) %>% 
+  mutate(post = if_else(cmplnt_fr_dt >= mdy("04-01-2018"), 1, 0)) %>%
   group_by(
     GEOID_b, post, quarter, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
     pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64, buffer
   ) %>%
-  summarize(violent_ellen = sum(violent_ellen, na.rm = T),
-            property_ellen = sum(property_ellen, na.rm = T),
-            distance_boundary = mean(distance_boundary, na.rm = T)) %>%
-  mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag)) %>% 
-  filter(post == 1 & !is.na(quarter)) %>% 
-  pivot_wider(id_cols = c("GEOID_b", "post", constructs, urbanvars), names_from = "quarter", values_from = c("violent_ellen", "property_ellen"))
+  summarize(
+    violent_ellen = sum(violent_ellen, na.rm = T),
+    property_ellen = sum(property_ellen, na.rm = T),
+    distance_boundary = mean(distance_boundary, na.rm = T)
+  ) %>%
+  mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag)) %>%
+  filter(post == 1 & !is.na(quarter))
 
 stopifnot(eeptools::isid(cp_oz2, c("GEOID_b", "post")))
-
-cp_oz2 %>% 
-  write_csv("../00_data/analysis_file_complaints.csv")
 
 # when write methods section, cite paper
 ```
@@ -123,46 +126,72 @@ cp_oz2 %>%
 ```{r}
 # Winsorize
 ar_oz2$violent_ellen_winsorize <- Winsorize(ar_oz2$violent_ellen,
-            probs = c(0.01, 0.99))
+  probs = c(0.01, 0.99)
+)
 
 ar_oz2$property_ellen_winsorize <- Winsorize(ar_oz2$property_ellen,
-            probs = c(0.01, 0.99))
+  probs = c(0.01, 0.99)
+)
+```
 
-# Examples but cut later  
-ar_oz2 %>% 
-  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>% 
-  filter(!is.na(treatment)) %>% 
-  filter(abs(distance_boundary) < 193) %>% 
-  ggplot(aes(x = distance_boundary, y = violent_ellen_winsorize, group=DESIGNATED, color=DESIGNATED)) +
-  geom_point(alpha=0.25) +
-  #geom_smooth(method="lm") +
+```{r}
+ar_oz2 <- ar_oz2 %>%
+  pivot_wider(
+    id_cols = c("GEOID_b", "post", constructs, urbanvars), names_from = "quarter", values_from =
+      c("violent_ellen_winsorize", "property_ellen_winsorize")
+  )
+
+cp_oz2 %>%
+  pivot_wider(id_cols = c("GEOID_b", "post", constructs, urbanvars), names_from = "quarter", values_from = c("violent_ellen", "property_ellen"))
+
+# write to csv
+ar_oz2 %>%
+  write_csv("../00_data/analysis_file_arrest.csv")
+
+cp_oz2 %>%
+  write_csv("../00_data/analysis_file_complaints.csv")
+```
+
+```{r}
+
+# Examples but cut later
+ar_oz2 %>%
+  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>%
+  filter(!is.na(treatment)) %>%
+  filter(abs(distance_boundary) < 193) %>%
+  ggplot(aes(x = distance_boundary, y = violent_ellen_winsorize, group = DESIGNATED, color = DESIGNATED)) +
+  geom_point(alpha = 0.25) +
+  # geom_smooth(method="lm") +
   theme_classic() +
-  facet_wrap(~if_else(post==1, "(1) Post", ("(0) Pre")))
+  facet_wrap(~ if_else(post == 1, "(1) Post", ("(0) Pre")))
 
-points <- ar_oz2 %>% 
-  filter(abs(distance_boundary) < 193, violent_ellen_winsorize < 15) %>% 
-  mutate(distance_boundary = round(distance_boundary, 1)) %>% 
-  group_by(distance_boundary) %>% 
-  summarize(violent_ellen_winsorize = mean(violent_ellen_winsorize),
-            num_obs = n())
+points <- ar_oz2 %>%
+  filter(abs(distance_boundary) < 193, violent_ellen_winsorize < 15) %>%
+  mutate(distance_boundary = round(distance_boundary, 1)) %>%
+  group_by(distance_boundary) %>%
+  summarize(
+    violent_ellen_winsorize = mean(violent_ellen_winsorize),
+    num_obs = n()
+  )
 
-ar_oz2 %>% 
-  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>% 
-  filter(!is.na(treatment)) %>% 
-  filter(abs(distance_boundary) < 193) %>% 
-  ggplot(aes(x = distance_boundary, y = property_ellen_winsorize, group=DESIGNATED, color=DESIGNATED)) +
-  geom_point(alpha=0.25) +
-  #geom_smooth(method="lm") +
+ar_oz2 %>%
+  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>%
+  filter(!is.na(treatment)) %>%
+  filter(abs(distance_boundary) < 193) %>%
+  ggplot(aes(x = distance_boundary, y = property_ellen_winsorize, group = DESIGNATED, color = DESIGNATED)) +
+  geom_point(alpha = 0.25) +
+  # geom_smooth(method="lm") +
   theme_classic() +
-  facet_wrap(~if_else(post==1, "(1) Post", ("(0) Pre")))
+  facet_wrap(~ if_else(post == 1, "(1) Post", ("(0) Pre")))
 
-points <- ar_oz2 %>% 
-  filter(abs(distance_boundary) < 193, property_ellen_winsorize < 15) %>% 
-  mutate(distance_boundary = round(distance_boundary, 1)) %>% 
-  group_by(distance_boundary) %>% 
-  summarize(property_ellen_winsorize = mean(property_ellen_winsorize),
-            num_obs = n())
-
+points <- ar_oz2 %>%
+  filter(abs(distance_boundary) < 193, property_ellen_winsorize < 15) %>%
+  mutate(distance_boundary = round(distance_boundary, 1)) %>%
+  group_by(distance_boundary) %>%
+  summarize(
+    property_ellen_winsorize = mean(property_ellen_winsorize),
+    num_obs = n()
+  )
 ```
 
 
