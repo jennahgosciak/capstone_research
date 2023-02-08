@@ -1,0 +1,121 @@
+---
+title: "Descriptive Analysis of OZs using ACS Census Data"
+author: "Jennah Gosciak"
+date: "11-18-2022"
+output:
+  html_document:
+    df_print: paged
+---
+
+Creates a buffer based on the average square footage of a NYC block.
+
+```{r}
+library(tidyverse)
+library(tidycensus)
+library(magrittr)
+library(sf)
+library(wesanderson) # for colors :)
+library(lmtest)
+library(sandwich)
+library(readxl)
+```
+```{r}
+boros <- st_read("https://data.cityofnewyork.us/resource/7t3b-ywvw.geojson")
+oz_bound <- st_read("../00_data/oz_bound.geojson")
+oz_buffer <- st_read("../00_data/oz_buffer_small.geojson")
+
+# load census blocks
+cb <- st_read("https://data.cityofnewyork.us/resource/twhy-dzjp.geojson?$limit=1000000") %>%
+  st_transform(2263)
+```
+```{r}
+cb_touches <- cb %>%
+  # more narrow buffer
+  st_intersects(oz_buffer, sparse = F)
+cb_touches
+
+cb_adj <- cb[cb_touches, ]
+cb_adj
+
+cb_adj %>%
+  st_write("../00_data/cb_adjacent.geojson", delete_dsn = T)
+
+cb_adj %>%
+  as.data.frame() %>%
+  write_csv("../00_data/cb_adjacent.csv")
+
+```
+```{r}
+cb_adj %>%
+  ggplot() +
+  geom_sf(data = boros, fill = NA, color = "gray") +
+  geom_sf(fill = "red", color = NA) +
+  geom_sf(data = oz_bound, color = "black", size = 0.5) +
+  theme_void()
+
+ggsave("../03_output/adj_blocks.png")
+```
+
+```{r}
+# load acs bg data
+acs_tract <- read_csv("../00_data/acs_oz.csv") %>%
+  mutate(GEOID = as.character(GEOID))
+
+acs_bg <- read_csv("../00_data/acs_bg.csv") %>%
+  mutate(GEOID = as.character(GEOID_bg))
+acs_bg
+```
+```{r}
+cb_adj_acs_tract <- cb_adj %>%
+  as.data.frame() %>%
+  mutate(
+    county_code = case_when(
+      boro_code == 1 ~ "36061",
+      boro_code == 2 ~ "36005",
+      boro_code == 3 ~ "36047",
+      boro_code == 4 ~ "36081",
+      boro_code == 5 ~ "36085"
+    ),
+    GEOID = str_c(county_code, ct2010)
+  ) %>%
+  select(GEOID) %>%
+  unique() %>%
+  inner_join(acs_tract, ., by = "GEOID")
+
+cb_adj_acs_bg <- cb_adj %>%
+  as.data.frame() %>%
+  mutate(
+    county_code = case_when(
+      boro_code == 1 ~ "36061",
+      boro_code == 2 ~ "36005",
+      boro_code == 3 ~ "36047",
+      boro_code == 4 ~ "36081",
+      boro_code == 5 ~ "36085"
+    ),
+    GEOID = str_c(county_code, ct2010, substr(cb2010, 1, 1))
+  ) %>%
+  select(GEOID) %>%
+  unique() %>%
+  inner_join(acs_bg, ., by = "GEOID")
+
+cb_adj_acs_tract %>%
+  write_csv("../00_data/cb_adj_acs.csv")
+
+cb_adj_acs_bg %>%
+  write_csv("../00_data/cb_adj_acs_bg.csv")
+
+cb_adj %>%
+  st_write("../00_data/cb_adj_acs.geojson", delete_dsn = T)
+
+cb_adj_acs_bg %>%
+  st_write("../00_data/cb_adj_acs_bg.geojson", delete_dsn = T)
+
+cb_adj_acs %>%
+  head()
+```
+
+
+
+
+
+

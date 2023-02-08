@@ -1,0 +1,86 @@
+---
+title: "Descriptive Analysis of OZs using ACS Census Data"
+author: "Jennah Gosciak"
+date: "11-18-2022"
+output:
+  html_document:
+    df_print: paged
+---
+
+Creates a buffer based on the average square footage of a NYC block.
+
+```{r}
+library(tidyverse)
+library(tidycensus)
+library(magrittr)
+library(sf)
+library(wesanderson) # for colors :)
+library("lmtest")
+library("sandwich")
+library(readxl)
+```
+```{r}
+# load ozs for nyc
+oz <- st_read("../00_data/nyc_oz.geojson")
+
+boros <- st_read("https://data.cityofnewyork.us/resource/7t3b-ywvw.geojson")
+
+oz %>%
+  filter(is.na(DESIGNATED)) %>%
+  nrow() %>%
+  equals(0) %>%
+  stopifnot()
+
+oz_proj <- oz %>%
+  # project to nys plane in feet
+  st_transform(2263)
+oz_proj
+
+oz_bound <- oz_proj %>%
+  # we only want boundaries between selected and eligible tracts
+  # need to filter that
+  filter(DESIGNATED == "True") %>%
+  st_union() %>%
+  st_boundary()
+
+oz_buffer <- oz_bound %>%
+  st_buffer(dist = (264 * 2))
+
+oz_buffer_small <- oz_bound %>%
+  st_buffer(dist = 5)
+
+# look at 5 examples
+oz_buffer %>%
+  head(5) %>%
+  ggplot() +
+  geom_sf(color = "red") +
+  geom_sf(data = oz_bound %>%
+    head(5), color = "black") +
+  theme_void()
+
+oz_buffer %>%
+  st_union() %>%
+  ggplot() +
+  geom_sf(data = boros, color = "gray", fill = NA) +
+  geom_sf(color = "red") +
+  theme_void()
+
+ggsave("../03_output/oz_buffer.png")
+
+oz_bound %>%
+  st_union() %>%
+  st_write("../00_data/oz_bound.geojson", delete_dsn = TRUE)
+
+oz_buffer %>%
+  st_union() %>%
+  st_write("../00_data/oz_buffer.geojson", delete_dsn = TRUE)
+
+oz_buffer_small %>%
+  st_union() %>%
+  st_write("../00_data/oz_buffer_small.geojson", delete_dsn = TRUE)
+```
+
+
+
+
+

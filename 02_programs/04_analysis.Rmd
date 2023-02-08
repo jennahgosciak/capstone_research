@@ -1,0 +1,162 @@
+---
+title: "Report Figures"
+author: "Adelaide Currin, Haowei Wang, Jennah Gosciak, Yiping Zuo"
+date: "2023-01-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(sf)
+library(lubridate)
+library(zoo)
+library(lmtest)
+library(sandwich)
+library(wesanderson)
+library(rdrobust)
+library(stargazer)
+library(modelsummary)
+library(kableExtra)
+library(gt)
+```
+
+# Load Data
+
+```{r, include=F}
+# download data
+az_oz2 <- read_csv("../00_data/analysis_file_arrest.csv")
+cp_oz2 <- read_csv("../00_data/analysis_file_complaints.csv")
+
+ar_oz2 %>%
+  head()
+```
+```{r}
+# load varlist
+acs_varlist <- readxl::read_excel("../00_data/acs_varlist.xlsx") %>%
+  filter(include == 1)
+acs_varlist
+
+acs_vars <- acs_varlist$variable
+names(acs_vars) <- acs_varlist$description
+
+constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
+urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
+```
+
+```{r}
+bws <- rdbwselect(ar_oz2$violent_ellen, ar_oz2$distance_boundary, c = 0,
+                  kernel = "tri", bwselect="mserd")
+
+model2 <- rdrobust(ar_oz2$violent_ellen, ar_oz2$distance_boundary, c = 0, masspoints="adjust", p=2)
+model3 <- rdrobust(ar_oz2$violent_ellen, ar_oz2$distance_boundary, c = 0, masspoints="adjust", p=3)
+```
+
+```{r}
+tidy.rdrobust <- function(outcome, x, outcome_name, p=1, covs=NULL,...){
+  if (!is.null(covs)) {
+    object <- rdrobust(outcome, x, c = 0, covs=covs,
+                       masspoints="adjust", p=p)
+    
+    covariate_lab <- "covariates"
+  } else {
+    object <- rdrobust(outcome, x, c = 0,
+                       masspoints="adjust", p=p)
+    
+    covariate_lab <- "no covariates"
+  }
+    ret <- data.frame(outcome = outcome_name, 
+                      term = row.names(object$coef),
+                      order = p,
+                      covs = covariate_lab,
+                      estimate = object$coef[, 1], 
+                      std.error = object$se[, 1], 
+                      statistic = object$z[, 1],
+                      p.value = object$pv[, 1], 
+                      conf.low = object$ci[,1],
+                      conf.high = object$ci[, 2],
+                      nobs.left = object$N[1],
+                      nobs.right = object$N[2],
+                      nobs.effective.left = object$N_h[1],
+                      nobs.effective.right = object$N_h[2],
+                      cutoff = object$c,
+                      order.regression = object$q,
+                      order.bias = object$q,
+                      kernel = object$kernel,
+                      bwselect = object$bwselect)
+    row.names(ret) <- NULL
+    ret
+}
+
+```
+
+```{r}
+outcome_data <- list(ar_oz2[["violent_ellen"]], ar_oz2[["property_ellen"]])
+running_var <- list(ar_oz2[["distance_boundary"]])
+outcomes <- c("overall_violent", "overall_property")
+covs <- ar_oz2[, constructs]
+
+run_model_set <- function(outcome_data, running_var, outcomes, p, covs) {
+  return(pmap_dfr(list(outcome_data, running_var, outcomes),
+              ~tidy.rdrobust(..1, ..2, ..3, p=p)) %>% 
+  bind_rows(pmap_dfr(list(outcome_data, running_var, outcomes),
+              ~tidy.rdrobust(..1, ..2, ..3, p=p, covs=covs))))
+}
+
+output <- map_dfr(c(1:4),
+                  ~run_model_set(outcome_data, running_var, outcomes, p=., covs))
+output
+
+output %>% 
+  write_csv(str_glue("../03_output/results_{Sys.Date()}.csv"))
+```
+
+```{r}
+# creating plots
+walk(c(1:4), ~rdplot(outcome_data[[1]], running_var[[1]], p=., title=str_glue("RD Plot for p={.}"),
+                     x.label = "distance", y.label = outcomes[1]))
+
+walk(c(1:4), ~rdplot(outcome_data[[1]], running_var[[1]], p=., covs=covs, title=str_glue("RD Plot w/ covariates for p={.}"), x.label = "distance", y.label = outcomes[1]))
+```
+
+```{r}
+ar_oz2 %>% 
+  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>% 
+  filter(!is.na(treatment)) %>% 
+  filter(abs(distance_boundary) < 193) %>% 
+  ggplot(aes(x = distance_boundary, y = violent_ellen, group=DESIGNATED, color=DESIGNATED)) +
+  geom_point(alpha=0.25) +
+  #geom_smooth(method="lm") +
+  theme_classic() +
+  facet_wrap(~if_else(post==1, "(1) Post", ("(0) Pre")))
+
+points <- ar_oz2 %>% 
+  filter(abs(distance_boundary) < 193, violent_ellen < 15) %>% 
+  mutate(distance_boundary = round(distance_boundary, 1)) %>% 
+  group_by(distance_boundary) %>% 
+  summarize(violent_ellen = mean(violent_ellen),
+            num_obs = n())
+
+ar_oz2 %>% 
+  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>% 
+  filter(abs(distance_boundary) < 193) %>% 
+  ggplot(aes(x = distance_boundary, y = violent_ellen, group=DESIGNATED, color=DESIGNATED)) +
+  geom_point(data = points, aes(x = distance_boundary,
+                                y = violent_ellen, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  facet_wrap(~post)
+
+# checking treatment
+ar_oz2 %>% 
+  mutate(treatment = if_else(distance_boundary >= 0, 1, 0)) %>% 
+  group_by(treatment, DESIGNATED) %>% 
+  summarize(n = n())
+```
+
+
+
+
+
+
+
+
+

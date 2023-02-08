@@ -1,0 +1,135 @@
+---
+title: "Descriptive Analysis of OZs using ACS Census Data"
+author: "Jennah Gosciak"
+date: "11-18-2022"
+output:
+  html_document:
+    df_print: paged
+---
+
+This notebook generates some initial descriptives of selected and eligible OZ tracts in NYC using data from the American Community Survey.
+
+```{r}
+library(tidyverse)
+library(tidycensus)
+library(magrittr)
+library(sf)
+library(wesanderson) # for colors :)
+library("lmtest")
+library("sandwich")
+library(readxl)
+```
+```{r}
+# load ozs for nyc
+oz <- st_read("../00_data/nyc_oz.geojson")
+
+oz %>%
+  filter(is.na(DESIGNATED)) %>%
+  nrow() %>%
+  equals(0) %>%
+  stopifnot()
+```
+
+```{r}
+# load varlist
+acs_varlist <- readxl::read_excel("../00_data/acs_varlist.xlsx") %>%
+  filter(include == 1)
+acs_varlist
+
+acs_vars <- acs_varlist$variable
+names(acs_vars) <- acs_varlist$description
+
+# loading acs data
+acs_nyc <- get_acs(
+  geography = "tract", variables = acs_vars,
+  state = "NY", county = c("047", "085", "081", "061", "005"),
+  year = 2020
+)
+
+acs_nyc_bg <- get_acs(
+  geography = "block group", variables = acs_vars,
+  state = "NY", county = c("047", "085", "081", "061", "005"),
+  year = 2020
+)
+
+generate_acs_vars <- function(df) {
+  df %>%
+    pivot_wider(id_cols = c("GEOID", "NAME"), names_from = "variable", values_from = "estimate") %>%
+    mutate(
+      pct_white = white_population / population,
+      minutes_commute_avg = minutes_commute / employed_population,
+      pct_higher_ed = rowSums(select(., c(associate, bachelor, master, professional_school, doctoral)), na.rm = T) / population,
+      pct_rent = renter_occupied / total_housing,
+      pct_native_hc_covered = native_born_hc_covered / native_born,
+      pct_poverty = poverty / population
+    )
+}
+
+constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
+
+# calculate at the tract level
+acs_nyc_wide <- acs_nyc %>%
+  generate_acs_vars()
+
+acs_nyc_wide_bg <- acs_nyc_bg %>%
+  generate_acs_vars()
+
+acs_nyc_wide %>%
+  head()
+
+acs_nyc_wide_bg %>%
+  head()
+```
+
+```{r}
+# merge to acs
+acs_oz <- oz %>%
+  left_join(acs_nyc_wide, by = "GEOID")
+
+acs_oz_bg <- acs_nyc_wide_bg %>%
+  rename(GEOID_bg = GEOID) %>%
+  mutate(GEOID_tract = substr(GEOID_bg, 1, 11)) %>%
+  left_join(oz, ., by = c("GEOID" = "GEOID_tract"))
+```
+
+```{r}
+# Load Urban
+urban <- read_excel("../00_data/urbaninstitute_tractlevelozanalysis_update01142021.xlsx") %>%
+  select(geoid, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64) %>%
+  rename(GEOID = geoid) %>%
+  mutate(SE_Flag = replace_na(SE_Flag, 0))
+
+urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
+
+old_row_num <- nrow(acs_oz)
+acs_oz <- acs_oz %>%
+  left_join(urban, by = c("GEOID"))
+
+stopifnot(old_row_num == nrow(acs_oz))
+```
+
+```{r}
+acs_oz %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED) %>%
+  summarize(across(population:pctover64, mean, na.rm = T)) %>%
+  pivot_longer(cols = c(population:pctover64)) %>%
+  # create missing flag
+  # duplicate at the block group level
+  # summary statistics of missingness
+  # really only care about the ones that are close to the boundary
+  mutate(
+    value = round(value, 2),
+    designated_desc = if_else(DESIGNATED == "True", "designated", "eligible")
+  ) %>%
+  pivot_wider(id_cols = "name", names_from = "designated_desc", values_from = "value")
+```
+
+
+```{r}
+acs_oz %>%
+  write_csv("../00_data/acs_oz.csv")
+
+acs_oz_bg %>%
+  write_csv("../00_data/acs_bg.csv")
+```
