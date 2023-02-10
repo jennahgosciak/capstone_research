@@ -44,111 +44,150 @@ urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
 ```
 
 ```{r}
-bws <- rdbwselect(ar_oz2$violent_ellen, ar_oz2$distance_boundary, c = 0,
-                  kernel = "tri", bwselect="mserd")
-
-model2 <- rdrobust(ar_oz2$violent_ellen, ar_oz2$distance_boundary, c = 0, masspoints="adjust", p=2)
-model3 <- rdrobust(ar_oz2$violent_ellen, ar_oz2$distance_boundary, c = 0, masspoints="adjust", p=3)
-```
-
-```{r}
-tidy.rdrobust <- function(outcome, x, outcome_name, p=1, covs=NULL,...){
+tidy.rdrobust <- function(outcome, x, outcome_name, p = 1, covs = NULL, ...) {
   if (!is.null(covs)) {
-    object <- rdrobust(outcome, x, c = 0, covs=covs,
-                       masspoints="adjust", p=p)
-    
+    object <- rdrobust(outcome, x,
+      c = 0, covs = covs,
+      masspoints = "adjust", p = p
+    )
+
     covariate_lab <- "covariates"
   } else {
-    object <- rdrobust(outcome, x, c = 0,
-                       masspoints="adjust", p=p)
-    
+    object <- rdrobust(outcome, x,
+      c = 0,
+      masspoints = "adjust", p = p
+    )
+
     covariate_lab <- "no covariates"
   }
-    ret <- data.frame(outcome = outcome_name, 
-                      term = row.names(object$coef),
-                      order = p,
-                      covs = covariate_lab,
-                      estimate = object$coef[, 1], 
-                      std.error = object$se[, 1], 
-                      statistic = object$z[, 1],
-                      p.value = object$pv[, 1], 
-                      conf.low = object$ci[,1],
-                      conf.high = object$ci[, 2],
-                      nobs.left = object$N[1],
-                      nobs.right = object$N[2],
-                      nobs.effective.left = object$N_h[1],
-                      nobs.effective.right = object$N_h[2],
-                      cutoff = object$c,
-                      order.regression = object$q,
-                      order.bias = object$q,
-                      kernel = object$kernel,
-                      bwselect = object$bwselect)
-    row.names(ret) <- NULL
-    ret
+  ret <- data.frame(
+    outcome = outcome_name,
+    term = row.names(object$coef),
+    order = p,
+    covs = covariate_lab,
+    estimate = object$coef[, 1],
+    std.error = object$se[, 1],
+    statistic = object$z[, 1],
+    p.value = object$pv[, 1],
+    conf.low = object$ci[, 1],
+    conf.high = object$ci[, 2],
+    nobs.left = object$N[1],
+    nobs.right = object$N[2],
+    nobs.effective.left = object$N_h[1],
+    nobs.effective.right = object$N_h[2],
+    cutoff = object$c,
+    order.regression = object$q,
+    order.bias = object$q,
+    kernel = object$kernel,
+    bwselect = object$bwselect
+  )
+  row.names(ret) <- NULL
+  ret
 }
-
 ```
 
 ```{r}
-outcome_data <- list(ar_oz2[["violent_ellen"]], ar_oz2[["property_ellen"]])
-running_var <- list(ar_oz2[["distance_boundary"]])
-outcomes <- c("overall_violent", "overall_property")
-covs <- ar_oz2[, constructs]
-
 run_model_set <- function(outcome_data, running_var, outcomes, p, covs) {
-  return(pmap_dfr(list(outcome_data, running_var, outcomes),
-              ~tidy.rdrobust(..1, ..2, ..3, p=p)) %>% 
-  bind_rows(pmap_dfr(list(outcome_data, running_var, outcomes),
-              ~tidy.rdrobust(..1, ..2, ..3, p=p, covs=covs))))
+  # vector to drop missing covariates
+  keep_cov <- covs %>% 
+    is.na() %>% 
+    rowSums() %>%
+    magrittr::equals(0)
+
+  # drop missing covariate values
+  outcome_data_cov <- outcome_data[keep_cov,]
+  running_var_cov <- running_var[keep_cov]
+  covs <- covs[keep_cov, ]
+  
+  return(map2_dfr(
+    outcome_data, outcomes,
+    ~ tidy.rdrobust(.x, running_var, .y, p = p)
+  ) %>%
+    bind_rows(map2_dfr(
+      outcome_data_cov, outcomes,
+      ~ tidy.rdrobust(.x, running_var_cov, .y, p = p, covs = covs)
+    )))
 }
+```
 
-output <- map_dfr(c(1:4),
-                  ~run_model_set(outcome_data, running_var, outcomes, p=., covs))
-output
+```{r}
+# define data and outcomes
+outcomes_ar <- map(c("violent_ellen_winsorize_ar_", "property_ellen_winsorize_ar_"), ~str_c(., c(1:7))) %>%
+  unlist()
+outcome_data_ar <- ar_oz2[, outcomes_ar]
+running_var_ar <- ar_oz2[["distance_boundary"]]
+covs_ar <- ar_oz2[, constructs]
 
+outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"), ~str_c(., c(1:7))) %>%
+  unlist()
+outcome_data_cp <- cp_oz2[, outcomes_cp]
+running_var_cp <- cp_oz2[["distance_boundary"]]
+covs_cp <- cp_oz2[, constructs]
+```
+
+```{r}
+output <- map_dfr(
+  c(1:4),
+  ~run_model_set(outcome_data_ar, running_var_ar, outcomes_ar, p = ., covs_ar)
+) %>% 
+  bind_rows(map_dfr(
+  c(1:4),
+  ~run_model_set(outcome_data_cp, running_var_cp, outcomes_cp, p = ., covs_cp)
+))
+  
 output %>% 
+  separate(outcome, c("crime_type", "measurement", "winsorize", "arrest_or_complaint", "quarter")) %>% 
+  select(-c(measurement, winsorize)) %>%
+  select(crime_type, arrest_or_complaint, term, order, covs, quarter, everything()) %>% 
+  arrange(crime_type, arrest_or_complaint, term, order, covs, quarter) %>% 
   write_csv(str_glue("../03_output/results_{Sys.Date()}.csv"))
 ```
 
 ```{r}
 # creating plots
-walk(c(1:4), ~rdplot(outcome_data[[1]], running_var[[1]], p=., title=str_glue("RD Plot for p={.}"),
-                     x.label = "distance", y.label = outcomes[1]))
+walk(c(1:4), ~ rdplot(outcome_data_ar[[1]], running_var_ar[[1]],
+  p = ., title = str_glue("RD Plot for p={.}"),
+  x.label = "distance", y.label = outcomes[1]
+))
 
-walk(c(1:4), ~rdplot(outcome_data[[1]], running_var[[1]], p=., covs=covs, title=str_glue("RD Plot w/ covariates for p={.}"), x.label = "distance", y.label = outcomes[1]))
+# walk(c(1:4), ~ rdplot(outcome_data_ar[[1]], running_var_ar[[1]], p = ., covs = covs_ar, title = str_glue("RD Plot w/ covariates for p={.}"), x.label = "distance", y.label = outcomes[1]))
 ```
 
 ```{r}
-ar_oz2 %>% 
-  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>% 
-  filter(!is.na(treatment)) %>% 
-  filter(abs(distance_boundary) < 193) %>% 
-  ggplot(aes(x = distance_boundary, y = violent_ellen, group=DESIGNATED, color=DESIGNATED)) +
-  geom_point(alpha=0.25) +
-  #geom_smooth(method="lm") +
+ar_oz2 %>%
+  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>%
+  filter(!is.na(treatment)) %>%
+  filter(abs(distance_boundary) < 193) %>%
+  ggplot(aes(x = distance_boundary, y = violent_ellen, group = DESIGNATED, color = DESIGNATED)) +
+  geom_point(alpha = 0.25) +
+  # geom_smooth(method="lm") +
   theme_classic() +
-  facet_wrap(~if_else(post==1, "(1) Post", ("(0) Pre")))
+  facet_wrap(~ if_else(post == 1, "(1) Post", ("(0) Pre")))
 
-points <- ar_oz2 %>% 
-  filter(abs(distance_boundary) < 193, violent_ellen < 15) %>% 
-  mutate(distance_boundary = round(distance_boundary, 1)) %>% 
-  group_by(distance_boundary) %>% 
-  summarize(violent_ellen = mean(violent_ellen),
-            num_obs = n())
+points <- ar_oz2 %>%
+  filter(abs(distance_boundary) < 193, violent_ellen < 15) %>%
+  mutate(distance_boundary = round(distance_boundary, 1)) %>%
+  group_by(distance_boundary) %>%
+  summarize(
+    violent_ellen = mean(violent_ellen),
+    num_obs = n()
+  )
 
-ar_oz2 %>% 
-  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>% 
-  filter(abs(distance_boundary) < 193) %>% 
-  ggplot(aes(x = distance_boundary, y = violent_ellen, group=DESIGNATED, color=DESIGNATED)) +
-  geom_point(data = points, aes(x = distance_boundary,
-                                y = violent_ellen, size=num_obs), alpha=.2, inherit.aes=F) +
-  geom_smooth(method="lm") +
+ar_oz2 %>%
+  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>%
+  filter(abs(distance_boundary) < 193) %>%
+  ggplot(aes(x = distance_boundary, y = violent_ellen, group = DESIGNATED, color = DESIGNATED)) +
+  geom_point(data = points, aes(
+    x = distance_boundary,
+    y = violent_ellen, size = num_obs
+  ), alpha = .2, inherit.aes = F) +
+  geom_smooth(method = "lm") +
   facet_wrap(~post)
 
 # checking treatment
-ar_oz2 %>% 
-  mutate(treatment = if_else(distance_boundary >= 0, 1, 0)) %>% 
-  group_by(treatment, DESIGNATED) %>% 
+ar_oz2 %>%
+  mutate(treatment = if_else(distance_boundary >= 0, 1, 0)) %>%
+  group_by(treatment, DESIGNATED) %>%
   summarize(n = n())
 ```
 

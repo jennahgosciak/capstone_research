@@ -871,7 +871,7 @@ cp_oz_plots <- cp_oz %>%
   ))
 
 ar_oz_plots %>%
-  filter(violent_ellen == 1) %>% 
+  filter(violent_ellen == 1) %>%
   mutate(distance_boundary = if_else(DESIGNATED == F, -1 * distance_boundary, distance_boundary)) %>%
   ggplot() +
   geom_histogram(aes(distance_boundary), bins = 70) +
@@ -886,7 +886,7 @@ ar_oz_plots %>%
 ggsave("../03_output/distance_his_ar_violent.png")
 
 ar_oz_plots %>%
-  filter(property_ellen == 1) %>% 
+  filter(property_ellen == 1) %>%
   mutate(distance_boundary = if_else(DESIGNATED == F, -1 * distance_boundary, distance_boundary)) %>%
   ggplot() +
   geom_histogram(aes(distance_boundary), bins = 70) +
@@ -901,7 +901,7 @@ ar_oz_plots %>%
 ggsave("../03_output/distance_his_ar_prop.png")
 
 cp_oz_plots %>%
-  filter(violent_ellen == 1) %>% 
+  filter(violent_ellen == 1) %>%
   mutate(distance_boundary = if_else(DESIGNATED == F, -1 * distance_boundary, distance_boundary)) %>%
   ggplot() +
   geom_histogram(aes(distance_boundary), bins = 70) +
@@ -916,7 +916,7 @@ cp_oz_plots %>%
 ggsave("../03_output/distance_his_cp_violent.png")
 
 cp_oz_plots %>%
-  filter(property_ellen == 1) %>% 
+  filter(property_ellen == 1) %>%
   mutate(distance_boundary = if_else(DESIGNATED == F, -1 * distance_boundary, distance_boundary)) %>%
   ggplot() +
   geom_histogram(aes(distance_boundary), bins = 70) +

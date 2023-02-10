@@ -43,7 +43,6 @@ cb_adj %>%
 cb_adj %>%
   as.data.frame() %>%
   write_csv("../00_data/cb_adjacent.csv")
-
 ```
 ```{r}
 cb_adj %>%

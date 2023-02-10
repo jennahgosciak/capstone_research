@@ -35,114 +35,173 @@ names(acs_vars) <- acs_varlist$description
 
 constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
 urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
+
+ar_oz
 ```
+
+```{r}
+# load acs data
+acs_oz <- read_csv("../00_data/acs_oz.csv")
+
+acs_oz_vars <- acs_oz %>%
+  select(GEOID, constructs, urbanvars)
+
+acs_oz_vars
+```
+
 
 ```{r}
 # attempt at adjusted differences for arrests
 ar_oz2 <- ar_oz %>%
-  mutate(arrest_month_yr = as.Date(
-    str_c(month(arrest_date), 1, year(arrest_date), sep = "-"),
-    "%m-%d-%Y"
+  mutate(quarter = case_when(
+    arrest_date >= mdy("06-01-2018") & arrest_date < mdy("09-01-2018") ~ 1,
+    arrest_date >= mdy("09-01-2018") & arrest_date < mdy("12-01-2018") ~ 2,
+    arrest_date >= mdy("12-01-2018") & arrest_date < mdy("3-01-2019") ~ 3,
+    arrest_date >= mdy("3-01-2018") & arrest_date < mdy("6-01-2019") ~ 4,
+    arrest_date >= mdy("6-01-2018") & arrest_date < mdy("9-01-2019") ~ 5,
+    arrest_date >= mdy("9-01-2018") & arrest_date < mdy("12-01-2019") ~ 6,
+    arrest_date >= mdy("12-01-2019") & arrest_date < mdy("3-01-2020") ~ 7,
+    arrest_date >= mdy("3-01-2018") & arrest_date < mdy("6-01-2020") ~ 8,
+    arrest_date >= mdy("6-01-2018") & arrest_date < mdy("9-01-2020") ~ 9,
+    arrest_date >= mdy("9-01-2020") & arrest_date < mdy("12-01-2020") ~ 10
   )) %>%
-  mutate(year = year(arrest_month_yr),
-         month = month(arrest_month_yr),
-         treatment = if_else(DESIGNATED == T, 1, 0),
-         distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)) %>%
+  mutate(
+    treatment = if_else(DESIGNATED == T, 1, 0),
+    distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)
+  ) %>%
   filter(!is.na(DESIGNATED) & buffer == 1) %>%
   # note: calculating this at the Census block level
-  mutate(post = if_else(arrest_month_yr >= mdy("04-01-2018"), 1, 0)) %>% 
+  mutate(post = if_else(arrest_date >= mdy("04-01-2018"), 1, 0)) %>%
   group_by(
-    GEOID_b, post, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
+    GEOID_b, GEOID, post, quarter, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
     pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64, buffer
   ) %>%
-  summarize(violent_ellen = sum(violent_ellen, na.rm = T),
-            property_ellen = sum(property_ellen, na.rm = T),
-            distance_boundary = mean(distance_boundary, na.rm = T)) %>%
-  mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag)) %>% 
-  filter(post == 1)
+  summarize(
+    violent_ellen = sum(violent_ellen, na.rm = T),
+    property_ellen = sum(property_ellen, na.rm = T),
+    distance_boundary = mean(distance_boundary, na.rm = T)
+  ) %>%
+  mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag)) %>%
+  filter(post == 1 & !is.na(quarter))
 
-stopifnot(eeptools::isid(ar_oz2, c("GEOID_b", "post")))
-
-ar_oz2 %>% 
-  write_csv("../00_data/analysis_file_arrest.csv")
-
+stopifnot(eeptools::isid(ar_oz2, c("GEOID_b", "post", "quarter")))
 ```
 
 ```{r}
 # attempt at adjusted differences for complaints
 cp_oz2 <- cp_oz %>%
-  mutate(cp_month_yr = as.Date(
-    str_c(month(cmplnt_fr_dt), 1, year(cmplnt_fr_dt), sep = "-"),
-    "%m-%d-%Y"
+  mutate(quarter = case_when(
+    cmplnt_fr_dt >= mdy("06-01-2018") & cmplnt_fr_dt < mdy("09-01-2018") ~ 1,
+    cmplnt_fr_dt >= mdy("09-01-2018") & cmplnt_fr_dt < mdy("12-01-2018") ~ 2,
+    cmplnt_fr_dt >= mdy("12-01-2018") & cmplnt_fr_dt < mdy("3-01-2019") ~ 3,
+    cmplnt_fr_dt >= mdy("3-01-2018") & cmplnt_fr_dt < mdy("6-01-2019") ~ 4,
+    cmplnt_fr_dt >= mdy("6-01-2018") & cmplnt_fr_dt < mdy("9-01-2019") ~ 5,
+    cmplnt_fr_dt >= mdy("9-01-2018") & cmplnt_fr_dt < mdy("12-01-2019") ~ 6,
+    cmplnt_fr_dt >= mdy("12-01-2019") & cmplnt_fr_dt < mdy("3-01-2020") ~ 7,
+    cmplnt_fr_dt >= mdy("3-01-2018") & cmplnt_fr_dt < mdy("6-01-2020") ~ 8,
+    cmplnt_fr_dt >= mdy("6-01-2018") & cmplnt_fr_dt < mdy("9-01-2020") ~ 9,
+    cmplnt_fr_dt >= mdy("9-01-2020") & cmplnt_fr_dt < mdy("12-01-2020") ~ 10
   )) %>%
-  mutate(year = year(cp_month_yr),
-         month = month(cp_month_yr),
-         treatment = if_else(DESIGNATED == T, 1, 0),
-         distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)) %>%
+  mutate(
+    treatment = if_else(DESIGNATED == T, 1, 0),
+    distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)
+  ) %>%
   filter(!is.na(DESIGNATED) & buffer == 1) %>%
   # note: calculating this at the Census block level
-  mutate(post = if_else(cp_month_yr >= mdy("04-01-2018"), 1, 0)) %>% 
+  mutate(post = if_else(cmplnt_fr_dt >= mdy("04-01-2018"), 1, 0)) %>%
   group_by(
-    GEOID_b, post, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
+    GEOID_b, GEOID, post, quarter, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
     pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64, buffer
   ) %>%
-  summarize(violent_ellen = sum(violent_ellen, na.rm = T),
-            property_ellen = sum(property_ellen, na.rm = T),
-            distance_boundary = mean(distance_boundary, na.rm = T)) %>%
-  mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag)) %>% 
-  filter(post == 1)
+  summarize(
+    violent_ellen = sum(violent_ellen, na.rm = T),
+    property_ellen = sum(property_ellen, na.rm = T),
+    distance_boundary = mean(distance_boundary, na.rm = T)
+  ) %>%
+  mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag)) %>%
+  filter(post == 1 & !is.na(quarter))
 
-stopifnot(eeptools::isid(cp_oz2, c("GEOID_b", "post")))
-
-cp_oz2 %>% 
-  write_csv("../00_data/analysis_file_complaints.csv")
+stopifnot(eeptools::isid(cp_oz2, c("GEOID_b", "post", "quarter")))
 
 # when write methods section, cite paper
 ```
 
 ```{r}
 # Winsorize
-ar_oz2$violent_ellen_winsorize <- Winsorize(ar_oz2$violent_ellen,
-            probs = c(0.01, 0.99))
+ar_oz2 <- ar_oz2 %>%
+  mutate(
+    violent_ellen_winsorize_ar = Winsorize(violent_ellen, probs = c(0.01, 0.99)),
+    property_ellen_winsorize_ar = Winsorize(property_ellen, probs = c(0.01, 0.99))
+  ) %>%
+  pivot_wider(
+    id_cols = c("GEOID_b", "GEOID", "post","distance_boundary"), names_from = "quarter", values_from =
+      ends_with("_ar")
+  ) %>%
+  left_join(acs_oz_vars, by = "GEOID") %>% 
+  mutate(across(starts_with("violent_ellen"), ~if_else(is.na(.), 0, .))) %>%
+  mutate(across(starts_with("property_ellen"), ~if_else(is.na(.), 0, .)))
 
-ar_oz2$property_ellen_winsorize <- Winsorize(ar_oz2$property_ellen,
-            probs = c(0.01, 0.99))
+cp_oz2 <- cp_oz2 %>%
+  mutate(
+    violent_ellen_winsorize_cp = Winsorize(violent_ellen, probs = c(0.01, 0.99)),
+    property_ellen_winsorize_cp = Winsorize(property_ellen, probs = c(0.01, 0.99))
+  ) %>%
+  pivot_wider(id_cols = c("GEOID_b", "GEOID", "post", "distance_boundary"),
+              names_from = "quarter", values_from = ends_with("_cp")) %>%
+  left_join(acs_oz_vars, by = "GEOID") %>%
+  mutate(across(starts_with("violent_ellen"), ~if_else(is.na(.), 0, .))) %>%
+  mutate(across(starts_with("property_ellen"), ~if_else(is.na(.), 0, .)))
+```
 
-# Examples but cut later  
-ar_oz2 %>% 
-  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>% 
-  filter(!is.na(treatment)) %>% 
-  filter(abs(distance_boundary) < 193) %>% 
-  ggplot(aes(x = distance_boundary, y = violent_ellen_winsorize, group=DESIGNATED, color=DESIGNATED)) +
-  geom_point(alpha=0.25) +
-  #geom_smooth(method="lm") +
+```{r}
+# write to csv
+ar_oz2
+ar_oz2 %>%
+  write_csv("../00_data/analysis_file_arrest.csv")
+
+cp_oz2 %>%
+  write_csv("../00_data/analysis_file_complaints.csv")
+```
+
+```{r}
+# Examples but cut later
+ar_oz2 %>%
+  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>%
+  filter(!is.na(treatment)) %>%
+  filter(abs(distance_boundary) < 193) %>%
+  ggplot(aes(x = distance_boundary, y = violent_ellen_winsorize, group = DESIGNATED, color = DESIGNATED)) +
+  geom_point(alpha = 0.25) +
+  # geom_smooth(method="lm") +
   theme_classic() +
-  facet_wrap(~if_else(post==1, "(1) Post", ("(0) Pre")))
+  facet_wrap(~ if_else(post == 1, "(1) Post", ("(0) Pre")))
 
-points <- ar_oz2 %>% 
-  filter(abs(distance_boundary) < 193, violent_ellen_winsorize < 15) %>% 
-  mutate(distance_boundary = round(distance_boundary, 1)) %>% 
-  group_by(distance_boundary) %>% 
-  summarize(violent_ellen_winsorize = mean(violent_ellen_winsorize),
-            num_obs = n())
+points <- ar_oz2 %>%
+  filter(abs(distance_boundary) < 193, violent_ellen_winsorize < 15) %>%
+  mutate(distance_boundary = round(distance_boundary, 1)) %>%
+  group_by(distance_boundary) %>%
+  summarize(
+    violent_ellen_winsorize = mean(violent_ellen_winsorize),
+    num_obs = n()
+  )
 
-ar_oz2 %>% 
-  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>% 
-  filter(!is.na(treatment)) %>% 
-  filter(abs(distance_boundary) < 193) %>% 
-  ggplot(aes(x = distance_boundary, y = property_ellen_winsorize, group=DESIGNATED, color=DESIGNATED)) +
-  geom_point(alpha=0.25) +
-  #geom_smooth(method="lm") +
+ar_oz2 %>%
+  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>%
+  filter(!is.na(treatment)) %>%
+  filter(abs(distance_boundary) < 193) %>%
+  ggplot(aes(x = distance_boundary, y = property_ellen_winsorize, group = DESIGNATED, color = DESIGNATED)) +
+  geom_point(alpha = 0.25) +
+  # geom_smooth(method="lm") +
   theme_classic() +
-  facet_wrap(~if_else(post==1, "(1) Post", ("(0) Pre")))
+  facet_wrap(~ if_else(post == 1, "(1) Post", ("(0) Pre")))
 
-points <- ar_oz2 %>% 
-  filter(abs(distance_boundary) < 193, property_ellen_winsorize < 15) %>% 
-  mutate(distance_boundary = round(distance_boundary, 1)) %>% 
-  group_by(distance_boundary) %>% 
-  summarize(property_ellen_winsorize = mean(property_ellen_winsorize),
-            num_obs = n())
-
+points <- ar_oz2 %>%
+  filter(abs(distance_boundary) < 193, property_ellen_winsorize < 15) %>%
+  mutate(distance_boundary = round(distance_boundary, 1)) %>%
+  group_by(distance_boundary) %>%
+  summarize(
+    property_ellen_winsorize = mean(property_ellen_winsorize),
+    num_obs = n()
+  )
 ```
 
 
