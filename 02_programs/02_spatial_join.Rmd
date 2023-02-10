@@ -172,7 +172,7 @@ ar_oz %>%
 
 ```{r}
 # calculate centroid of census blocks
-cb_centroid <- cb %>% 
+cb_centroid <- cb %>%
   st_centroid()
 
 ggplot() +
@@ -181,13 +181,13 @@ ggplot() +
   theme_void()
 ```
 ```{r}
-# compute distances 
-centroid_distances <- cb_centroid %>% 
+# compute distances
+centroid_distances <- cb_centroid %>%
   st_distance(centroid_distance_boundary = st_centroid(cb_centroid, oz_bound))
 
-centroid_distances 
+centroid_distances
 
-centroid_distances %>% 
+centroid_distances %>%
   st_write("../03_output/centroid_distances.geojson", delete_dsn = T)
 ```
 

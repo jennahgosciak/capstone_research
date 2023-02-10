@@ -134,23 +134,25 @@ ar_oz2 <- ar_oz2 %>%
     property_ellen_winsorize_ar = Winsorize(property_ellen, probs = c(0.01, 0.99))
   ) %>%
   pivot_wider(
-    id_cols = c("GEOID_b", "GEOID", "post","distance_boundary"), names_from = "quarter", values_from =
+    id_cols = c("GEOID_b", "GEOID", "post", "distance_boundary"), names_from = "quarter", values_from =
       ends_with("_ar")
   ) %>%
-  left_join(acs_oz_vars, by = "GEOID") %>% 
-  mutate(across(starts_with("violent_ellen"), ~if_else(is.na(.), 0, .))) %>%
-  mutate(across(starts_with("property_ellen"), ~if_else(is.na(.), 0, .)))
+  left_join(acs_oz_vars, by = "GEOID") %>%
+  mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
+  mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
 
 cp_oz2 <- cp_oz2 %>%
   mutate(
     violent_ellen_winsorize_cp = Winsorize(violent_ellen, probs = c(0.01, 0.99)),
     property_ellen_winsorize_cp = Winsorize(property_ellen, probs = c(0.01, 0.99))
   ) %>%
-  pivot_wider(id_cols = c("GEOID_b", "GEOID", "post", "distance_boundary"),
-              names_from = "quarter", values_from = ends_with("_cp")) %>%
+  pivot_wider(
+    id_cols = c("GEOID_b", "GEOID", "post", "distance_boundary"),
+    names_from = "quarter", values_from = ends_with("_cp")
+  ) %>%
   left_join(acs_oz_vars, by = "GEOID") %>%
-  mutate(across(starts_with("violent_ellen"), ~if_else(is.na(.), 0, .))) %>%
-  mutate(across(starts_with("property_ellen"), ~if_else(is.na(.), 0, .)))
+  mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
+  mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
 ```
 
 ```{r}
