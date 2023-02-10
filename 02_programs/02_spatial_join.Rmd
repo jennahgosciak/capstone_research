@@ -169,7 +169,8 @@ ar_oz %>%
   group_by(distance_boundary, DESIGNATED) %>%
   summarize(n = n())
 ```
-+```{r}
+
+```{r}
 # centroid
 ar_oz_bd <- ar_oz %>%
   mutate(distance_boundary = as.numeric(distance_boundary)) %>%
