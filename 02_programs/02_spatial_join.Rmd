@@ -169,29 +169,26 @@ ar_oz %>%
   group_by(distance_boundary, DESIGNATED) %>%
   summarize(n = n())
 ```
-+```{r}
-# centroid
-ar_oz_bd <- ar_oz %>%
-  mutate(distance_boundary = as.numeric(distance_boundary)) %>%
-  filter(!is.na(distance_boundary)) %>%
-  filter(distance_boundary <= 1)
 
-ar_oz_bd$centroid <- st_centroid(ar_oz_bd$geometry)
+```{r}
+# calculate centroid of census blocks
+cb_centroid <- cb %>%
+  st_centroid()
 
 ggplot() +
+  geom_sf(data = cb_centroid, color = "gray") +
   geom_sf(data = oz_bound, color = "blue") +
-  plot(ar_oz_bd$geometry, axes = TRUE)
-  plot(st_centroid(ar_oz_bd$geometry), add = TRUE, pch = 3, col = 'red')
-  
+  theme_void()
 ```
 ```{r}
-# compute distances 
-distances <- ar_oz_bd %>% 
-  st_cast("POINT") %>% 
-  st_distance(st_centroid(ar_oz_bd$geometry))
+# compute distances
+centroid_distances <- cb_centroid %>%
+  st_distance(centroid_distance_boundary = st_distance(cb_centroid, oz_bound))
 
-distances 
+centroid_distances
 
+centroid_distances %>%
+  st_write("../03_output/centroid_distances.geojson", delete_dsn = T)
 ```
 
 ```{r}
