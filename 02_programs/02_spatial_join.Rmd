@@ -183,11 +183,7 @@ ggplot() +
 ```{r}
 # compute distances
 centroid_distances <- cb_centroid %>%
-<<<<<<< HEAD
-  st_distance(centroid_distance_boundary = st_distance(cb_centroid, oz_bound))
-=======
-  st_distance(centroid_distance_boundary = st_centroid(cb_centroid, oz_bound))
->>>>>>> 0cb6bae690e8dcd8dd60765c7b105a0507617b21
+  mutate(centroid_distance_boundary = st_distance(cb_centroid, oz_bound))
 
 centroid_distances
 
