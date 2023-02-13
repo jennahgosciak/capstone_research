@@ -63,9 +63,11 @@ ar_oz2 <- ar_oz %>%
     GEOID_b, GEOID, post, quarter, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
     pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64, buffer
   ) %>%
-  rename(violent_ellen_ar = violent_ellen,
-       property_ellen_ar = property_ellen,
-       distance_boundary_ar = distance_boundary) %>% 
+  rename(
+    violent_ellen_ar = violent_ellen,
+    property_ellen_ar = property_ellen,
+    distance_boundary_ar = distance_boundary
+  ) %>%
   summarize(
     violent_ellen_ar = sum(violent_ellen_ar, na.rm = T),
     property_ellen_ar = sum(property_ellen_ar, na.rm = T),
@@ -73,9 +75,8 @@ ar_oz2 <- ar_oz %>%
   ) %>%
   mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag)) %>%
   filter(post == 1 & !is.na(quarter))
-  
-stopifnot(eeptools::isid(ar_oz2, c("GEOID_b", "post", "quarter")))
 
+stopifnot(eeptools::isid(ar_oz2, c("GEOID_b", "post", "quarter")))
 ```
 
 ```{r}
@@ -104,9 +105,11 @@ cp_oz2 <- cp_oz %>%
     GEOID_b, GEOID, post, quarter, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
     pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64, buffer
   ) %>%
-  rename(violent_ellen_cp = violent_ellen,
-     property_ellen_cp = property_ellen,
-     distance_boundary_cp = distance_boundary) %>%
+  rename(
+    violent_ellen_cp = violent_ellen,
+    property_ellen_cp = property_ellen,
+    distance_boundary_cp = distance_boundary
+  ) %>%
   summarize(
     violent_ellen_cp = sum(violent_ellen_cp, na.rm = T),
     property_ellen_cp = sum(property_ellen_cp, na.rm = T),
@@ -145,18 +148,24 @@ cp_oz2 <- cp_oz2 %>%
 ar_oz3 <- ar_oz2 %>% ungroup()
 cp_oz3 <- cp_oz2 %>% ungroup()
 
-analysis_file <- left_join(cp_oz3, ar_oz3 %>% 
-                          select(GEOID_b, quarter, violent_ellen_ar, violent_ellen_winsorize_ar,
-                                 property_ellen_ar, property_ellen_winsorize_ar, 
-                                 distance_boundary_ar), 
-                           by = c("GEOID_b" = "GEOID_b", "quarter" = "quarter")) %>%
-              arrange(quarter) %>% 
-              pivot_wider(names_from = quarter,
-              values_from = c(violent_ellen_ar, violent_ellen_winsorize_ar, property_ellen_ar,
-                              property_ellen_winsorize_ar, distance_boundary_ar,
-                              violent_ellen_cp, violent_ellen_winsorize_cp, property_ellen_cp,
-                              property_ellen_winsorize_cp, distance_boundary_cp))
-
+analysis_file <- left_join(cp_oz3, ar_oz3 %>%
+  select(
+    GEOID_b, quarter, violent_ellen_ar, violent_ellen_winsorize_ar,
+    property_ellen_ar, property_ellen_winsorize_ar,
+    distance_boundary_ar
+  ),
+by = c("GEOID_b" = "GEOID_b", "quarter" = "quarter")
+) %>%
+  arrange(quarter) %>%
+  pivot_wider(
+    names_from = quarter,
+    values_from = c(
+      violent_ellen_ar, violent_ellen_winsorize_ar, property_ellen_ar,
+      property_ellen_winsorize_ar, distance_boundary_ar,
+      violent_ellen_cp, violent_ellen_winsorize_cp, property_ellen_cp,
+      property_ellen_winsorize_cp, distance_boundary_cp
+    )
+  )
 ```
 
 ```{r}
@@ -164,7 +173,6 @@ analysis_file <- left_join(cp_oz3, ar_oz3 %>%
 
 analysis_file %>%
   write_csv("../00_data/analysis_file.csv")
-
 ```
 
 
