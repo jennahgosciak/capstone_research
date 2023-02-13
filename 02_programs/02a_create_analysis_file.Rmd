@@ -130,7 +130,7 @@ cp_oz2 <- cp_oz2 %>%
 ar_oz3 <- ar_oz2 %>% ungroup()
 cp_oz3 <- cp_oz2 %>% ungroup()
 
-analysis_file <- left_join(cp_oz3, ar_oz3 %>%
+analysis_file <- full_join(cp_oz3, ar_oz3 %>%
   select(
     GEOID_b, quarter, violent_ellen_ar, violent_ellen_winsorize_ar,
     property_ellen_ar, property_ellen_winsorize_ar,
@@ -149,6 +149,7 @@ by = c("GEOID_b" = "GEOID_b", "quarter" = "quarter")
     )
   ) %>% mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
    mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
+
 ```
 
 ```{r}
