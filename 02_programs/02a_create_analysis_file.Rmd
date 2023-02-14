@@ -170,15 +170,15 @@ by = c("GEOID_b" = "GEOID_b", "quarter" = "quarter")
 
 ```{r}
 # check missingness
-unique_geoid_missing <- analysis_file %>% 
-  filter(is.na(pct_white)) %>% 
+unique_geoid_missing <- analysis_file %>%
+  filter(is.na(pct_white)) %>%
   distinct(GEOID)
 
-acs_oz_vars %>% 
-  inner_join(unique_geoid_missing, by = "GEOID") %>% 
-  filter(!is.na(pct_white)) %>% 
-  nrow() %>% 
-  magrittr::equals(0) %>% 
+acs_oz_vars %>%
+  inner_join(unique_geoid_missing, by = "GEOID") %>%
+  filter(!is.na(pct_white)) %>%
+  nrow() %>%
+  magrittr::equals(0) %>%
   stopifnot()
 ```
 
