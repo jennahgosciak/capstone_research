@@ -22,6 +22,26 @@ cp_oz <- read_csv("../00_data/cp_oz.csv")
 
 ```
 
+```{r}
+ # load varlist
+ acs_varlist <- readxl::read_excel("../00_data/acs_varlist.xlsx") %>%
+   filter(include == 1)
+ acs_varlist
+ acs_vars <- acs_varlist$variable
+ names(acs_vars) <- acs_varlist$description
+ constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
+ urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
+
+```
+
+```{r}
+ # load acs data
+ acs_oz <- read_csv("../00_data/acs_oz.csv")
+ 
+ acs_oz_vars <- acs_oz %>%
+   select(GEOID, constructs, urbanvars)
+
+```
 
 ```{r}
 # attempt at adjusted differences for arrests
@@ -130,13 +150,15 @@ cp_oz2 <- cp_oz2 %>%
 ar_oz3 <- ar_oz2 %>% ungroup()
 cp_oz3 <- cp_oz2 %>% ungroup()
 
+
+# withOUT remerging ACS
 analysis_file <- full_join(cp_oz3, ar_oz3 %>%
   select(
     GEOID_b, quarter, violent_ellen_ar, violent_ellen_winsorize_ar,
     property_ellen_ar, property_ellen_winsorize_ar,
     distance_boundary_ar
   ),
-by = c("GEOID_b" = "GEOID_b", "quarter" = "quarter")
+by = c("GEOID_b", "quarter")
 ) %>%
   arrange(quarter) %>%
   pivot_wider(
@@ -148,6 +170,29 @@ by = c("GEOID_b" = "GEOID_b", "quarter" = "quarter")
       property_ellen_winsorize_cp, distance_boundary_cp
     )
   ) %>% mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
+   mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
+
+# WITH remerging ACS but keeping original as well (so covaraite.x and covariate.y)
+analysis_file2 <- full_join(cp_oz3, ar_oz3 %>%
+  select(
+    GEOID_b, quarter, violent_ellen_ar, violent_ellen_winsorize_ar,
+    property_ellen_ar, property_ellen_winsorize_ar,
+    distance_boundary_ar
+  ),
+by = c("GEOID_b", "quarter")
+) %>%
+  arrange(quarter) %>%
+  pivot_wider(
+    names_from = quarter,
+    values_from = c(
+      violent_ellen_ar, violent_ellen_winsorize_ar, property_ellen_ar,
+      property_ellen_winsorize_ar, distance_boundary_ar,
+      violent_ellen_cp, violent_ellen_winsorize_cp, property_ellen_cp,
+      property_ellen_winsorize_cp, distance_boundary_cp
+    )
+  ) %>% left_join(acs_oz_vars, by = "GEOID") %>%
+  # Not sure if I did that right? Or in the right place? Doesn't seem to do anything?
+  mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
    mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
 
 ```
