@@ -20,6 +20,17 @@ library(DescTools)
 ar_oz <- read_csv("../00_data/ar_oz.csv")
 cp_oz <- read_csv("../00_data/cp_oz.csv")
 
+centroid_distances  <- st_read("../03_output/centroid_distances.geojson") %>% 
+  as.data.frame() %>% 
+  select(GEOID_b, centroid_distance_boundary, DESIGNATED) %>% 
+  # filtering out ineligible census blocks
+  filter(!is.na(DESIGNATED)) %>% 
+  mutate(GEOID_b = as.numeric(GEOID_b))
+centroid_distances
+
+# checking for uniqueness
+eeptools::isid(centroid_distances, "GEOID_b") %>% 
+  stopifnot()
 ```
 
 ```{r}
@@ -145,53 +156,35 @@ cp_oz2 <- cp_oz2 %>%
 
 ```{r}
 # Create one file
-ar_oz3 <- ar_oz2 %>% ungroup()
-cp_oz3 <- cp_oz2 %>% ungroup()
+ar_oz3 <- ar_oz2 %>%
+  ungroup() %>% 
+  select(GEOID_b, GEOID, post, quarter, starts_with("violent_ellen"), starts_with("property_ellen"))
 
-analysis_file <- left_join(cp_oz3, ar_oz3 %>%
-  select(
-    GEOID_b, quarter, violent_ellen_ar, violent_ellen_winsorize_ar,
-    property_ellen_ar, property_ellen_winsorize_ar,
-    distance_boundary_ar
-  ),
-by = c("GEOID_b" = "GEOID_b", "quarter" = "quarter")
-) %>%
-  arrange(quarter) %>%
-  pivot_wider(
-    names_from = quarter,
-    values_from = c(
-      violent_ellen_ar, violent_ellen_winsorize_ar, property_ellen_ar,
-      property_ellen_winsorize_ar, distance_boundary_ar,
-      violent_ellen_cp, violent_ellen_winsorize_cp, property_ellen_cp,
-      property_ellen_winsorize_cp, distance_boundary_cp
-    )
-  ) %>%
-  mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
-  mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
-
+cp_oz3 <- cp_oz2 %>%
+  ungroup() %>% 
+  select(GEOID_b, GEOID, post, quarter, starts_with("violent_ellen"), starts_with("property_ellen"))
+cp_oz3
+```
+```{r}
 # WITH remerging ACS but keeping original as well (so covaraite.x and covariate.y)
-analysis_file2 <- full_join(cp_oz3, ar_oz3 %>%
-  select(
-    GEOID_b, quarter, violent_ellen_ar, violent_ellen_winsorize_ar,
-    property_ellen_ar, property_ellen_winsorize_ar,
-    distance_boundary_ar
-  ),
-by = c("GEOID_b", "quarter")
-) %>%
+analysis_file <- full_join(ar_oz3, cp_oz3,
+            by = c("GEOID_b", "quarter", "post", "GEOID")
+            )  %>%
   arrange(quarter) %>%
   pivot_wider(
+    id_cols = c(GEOID_b, post, GEOID),
     names_from = quarter,
-    values_from = c(
-      violent_ellen_ar, violent_ellen_winsorize_ar, property_ellen_ar,
-      property_ellen_winsorize_ar, distance_boundary_ar,
-      violent_ellen_cp, violent_ellen_winsorize_cp, property_ellen_cp,
-      property_ellen_winsorize_cp, distance_boundary_cp
-    )
+    values_from = c(starts_with("violent_ellen"), starts_with("property_ellen"))
   ) %>%
   left_join(acs_oz_vars, by = "GEOID") %>%
-  # Not sure if I did that right? Or in the right place? Doesn't seem to do anything?
+  full_join(centroid_distances, by = "GEOID_b") %>% 
   mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
-  mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
+  mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .))) %>% 
+  # make distance negative if inside the boundary
+  mutate(centroid_distance_boundary = if_else(DESIGNATED == T, -1*centroid_distance_boundary,
+                                              centroid_distance_boundary))
+eeptools::isid(analysis_file, "GEOID_b") %>% 
+  stopifnot()
 ```
 
 ```{r}
