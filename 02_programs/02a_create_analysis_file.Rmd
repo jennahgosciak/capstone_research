@@ -19,28 +19,25 @@ library(DescTools)
 # download data
 ar_oz <- read_csv("../00_data/ar_oz.csv")
 cp_oz <- read_csv("../00_data/cp_oz.csv")
-
 ```
 
 ```{r}
- # load varlist
- acs_varlist <- readxl::read_excel("../00_data/acs_varlist.xlsx") %>%
-   filter(include == 1)
- acs_varlist
- acs_vars <- acs_varlist$variable
- names(acs_vars) <- acs_varlist$description
- constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
- urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
-
+# load varlist
+acs_varlist <- readxl::read_excel("../00_data/acs_varlist.xlsx") %>%
+  filter(include == 1)
+acs_varlist
+acs_vars <- acs_varlist$variable
+names(acs_vars) <- acs_varlist$description
+constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
+urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
 ```
 
 ```{r}
- # load acs data
- acs_oz <- read_csv("../00_data/acs_oz.csv")
- 
- acs_oz_vars <- acs_oz %>%
-   select(GEOID, constructs, urbanvars)
+# load acs data
+acs_oz <- read_csv("../00_data/acs_oz.csv")
 
+acs_oz_vars <- acs_oz %>%
+  select(GEOID, constructs, urbanvars)
 ```
 
 ```{r}
@@ -141,7 +138,7 @@ cp_oz2 <- cp_oz2 %>%
   mutate(
     violent_ellen_winsorize_cp = Winsorize(violent_ellen_cp, probs = c(0.01, 0.99)),
     property_ellen_winsorize_cp = Winsorize(property_ellen_cp, probs = c(0.01, 0.99))
-  ) 
+  )
 ```
 
 
@@ -169,8 +166,9 @@ by = c("GEOID_b", "quarter")
       violent_ellen_cp, violent_ellen_winsorize_cp, property_ellen_cp,
       property_ellen_winsorize_cp, distance_boundary_cp
     )
-  ) %>% mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
-   mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
+  ) %>%
+  mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
+  mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
 
 # WITH remerging ACS but keeping original as well (so covaraite.x and covariate.y)
 analysis_file2 <- full_join(cp_oz3, ar_oz3 %>%
@@ -190,11 +188,24 @@ by = c("GEOID_b", "quarter")
       violent_ellen_cp, violent_ellen_winsorize_cp, property_ellen_cp,
       property_ellen_winsorize_cp, distance_boundary_cp
     )
-  ) %>% left_join(acs_oz_vars, by = "GEOID") %>%
+  ) %>%
+  left_join(acs_oz_vars, by = "GEOID") %>%
   # Not sure if I did that right? Or in the right place? Doesn't seem to do anything?
   mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
-   mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
+  mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
+```
 
+```{r}
+# check missingness
+unique_geoid_missing <- analysis_file %>%
+  filter(is.na(pct_white)) %>%
+  distinct(GEOID)
+acs_oz_vars %>%
+  inner_join(unique_geoid_missing, by = "GEOID") %>%
+  filter(!is.na(pct_white)) %>%
+  nrow() %>%
+  magrittr::equals(0) %>%
+  stopifnot()
 ```
 
 ```{r}
