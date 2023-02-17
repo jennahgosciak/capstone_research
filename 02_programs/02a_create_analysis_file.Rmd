@@ -57,6 +57,11 @@ acs_oz_vars <- acs_oz %>%
 # attempt at adjusted differences for arrests
 ar_oz2 <- ar_oz %>%
   mutate(quarter = case_when(
+    arrest_date < mdy("3-01-2017") ~ -4,
+    arrest_date >= mdy("3-01-2017") & arrest_date < mdy("6-01-2017") ~ -3,
+    arrest_date >= mdy("6-01-2017") & arrest_date < mdy("9-01-2017") ~ -2,
+    arrest_date >= mdy("12-01-2017") & arrest_date < mdy("03-01-2018") ~ -1,
+    arrest_date >= mdy("03-01-2018") & arrest_date < mdy("06-01-2018") ~ 0,
     arrest_date >= mdy("06-01-2018") & arrest_date < mdy("09-01-2018") ~ 1,
     arrest_date >= mdy("09-01-2018") & arrest_date < mdy("12-01-2018") ~ 2,
     arrest_date >= mdy("12-01-2018") & arrest_date < mdy("3-01-2019") ~ 3,
@@ -72,12 +77,12 @@ ar_oz2 <- ar_oz %>%
     treatment = if_else(DESIGNATED == T, 1, 0),
     distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)
   ) %>%
-  filter(!is.na(DESIGNATED) & buffer == 1) %>%
+  filter(!is.na(DESIGNATED)) %>% # & buffer == 1
   # note: calculating this at the Census block level
   mutate(post = if_else(arrest_date >= mdy("04-01-2018"), 1, 0)) %>%
   group_by(
-    GEOID_b, GEOID, post, quarter, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
-    pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64, buffer
+    GEOID_b, GEOID, quarter, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
+    pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64
   ) %>%
   rename(
     violent_ellen_ar = violent_ellen,
@@ -90,15 +95,20 @@ ar_oz2 <- ar_oz %>%
     distance_boundary_ar = mean(distance_boundary_ar, na.rm = T)
   ) %>%
   mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag)) %>%
-  filter(post == 1 & !is.na(quarter))
+  filter(!is.na(quarter))
 
-stopifnot(eeptools::isid(ar_oz2, c("GEOID_b", "post", "quarter")))
+stopifnot(eeptools::isid(ar_oz2, c("GEOID_b", "quarter")))
 ```
 
 ```{r}
 # attempt at adjusted differences for complaints
 cp_oz2 <- cp_oz %>%
   mutate(quarter = case_when(
+    cmplnt_fr_dt < mdy("3-01-2017") ~ -4,
+    cmplnt_fr_dt >= mdy("3-01-2017") & cmplnt_fr_dt < mdy("6-01-2017") ~ -3,
+    cmplnt_fr_dt >= mdy("6-01-2017") & cmplnt_fr_dt < mdy("9-01-2017") ~ -2,
+    cmplnt_fr_dt >= mdy("12-01-2017") & cmplnt_fr_dt < mdy("03-01-2018") ~ -1,
+    cmplnt_fr_dt >= mdy("03-01-2018") & cmplnt_fr_dt < mdy("06-01-2018") ~ 0,
     cmplnt_fr_dt >= mdy("06-01-2018") & cmplnt_fr_dt < mdy("09-01-2018") ~ 1,
     cmplnt_fr_dt >= mdy("09-01-2018") & cmplnt_fr_dt < mdy("12-01-2018") ~ 2,
     cmplnt_fr_dt >= mdy("12-01-2018") & cmplnt_fr_dt < mdy("3-01-2019") ~ 3,
@@ -114,12 +124,10 @@ cp_oz2 <- cp_oz %>%
     treatment = if_else(DESIGNATED == T, 1, 0),
     distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)
   ) %>%
-  filter(!is.na(DESIGNATED) & buffer == 1) %>%
-  # note: calculating this at the Census block level
-  mutate(post = if_else(cmplnt_fr_dt >= mdy("04-01-2018"), 1, 0)) %>%
+  filter(!is.na(DESIGNATED)) %>% # & buffer == 1
   group_by(
-    GEOID_b, GEOID, post, quarter, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
-    pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64, buffer
+    GEOID_b, GEOID, quarter, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
+    pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64
   ) %>%
   rename(
     violent_ellen_cp = violent_ellen,
@@ -132,9 +140,9 @@ cp_oz2 <- cp_oz %>%
     distance_boundary_cp = mean(distance_boundary_cp, na.rm = T)
   ) %>%
   mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag)) %>%
-  filter(post == 1 & !is.na(quarter))
+  filter(!is.na(quarter))
 
-stopifnot(eeptools::isid(cp_oz2, c("GEOID_b", "post", "quarter")))
+stopifnot(eeptools::isid(cp_oz2, c("GEOID_b", "quarter")))
 
 # when write methods section, cite paper
 ```
@@ -158,21 +166,22 @@ cp_oz2 <- cp_oz2 %>%
 # Create one file
 ar_oz3 <- ar_oz2 %>%
   ungroup() %>% 
-  select(GEOID_b, GEOID, post, quarter, starts_with("violent_ellen"), starts_with("property_ellen"))
+  select(GEOID_b, GEOID, quarter, starts_with("violent_ellen"), starts_with("property_ellen"))
 
 cp_oz3 <- cp_oz2 %>%
   ungroup() %>% 
-  select(GEOID_b, GEOID, post, quarter, starts_with("violent_ellen"), starts_with("property_ellen"))
+  select(GEOID_b, GEOID, quarter, starts_with("violent_ellen"), starts_with("property_ellen"))
 cp_oz3
 ```
 ```{r}
 # WITH remerging ACS but keeping original as well (so covaraite.x and covariate.y)
 analysis_file <- full_join(ar_oz3, cp_oz3,
-            by = c("GEOID_b", "quarter", "post", "GEOID")
+            by = c("GEOID_b", "quarter", "GEOID")
             )  %>%
   arrange(quarter) %>%
+  mutate(quarter = str_replace(as.character(quarter), "\\-", "min")) %>% 
   pivot_wider(
-    id_cols = c(GEOID_b, post, GEOID),
+    id_cols = c(GEOID_b, GEOID),
     names_from = quarter,
     values_from = c(starts_with("violent_ellen"), starts_with("property_ellen"))
   ) %>%
@@ -183,8 +192,11 @@ analysis_file <- full_join(ar_oz3, cp_oz3,
   # make distance negative if inside the boundary
   mutate(centroid_distance_boundary = if_else(DESIGNATED == T, -1*centroid_distance_boundary,
                                               centroid_distance_boundary))
+
 eeptools::isid(analysis_file, "GEOID_b") %>% 
   stopifnot()
+
+analysis_file
 ```
 
 ```{r}
