@@ -19,6 +19,7 @@ library(DescTools)
 # download data
 ar_oz <- read_csv("../00_data/ar_oz.csv")
 cp_oz <- read_csv("../00_data/cp_oz.csv")
+
 ```
 
 ```{r}
@@ -26,6 +27,7 @@ cp_oz <- read_csv("../00_data/cp_oz.csv")
 acs_varlist <- readxl::read_excel("../00_data/acs_varlist.xlsx") %>%
   filter(include == 1)
 acs_varlist
+
 acs_vars <- acs_varlist$variable
 names(acs_vars) <- acs_varlist$description
 constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
@@ -137,8 +139,7 @@ ar_oz2 <- ar_oz2 %>%
 cp_oz2 <- cp_oz2 %>%
   mutate(
     violent_ellen_winsorize_cp = Winsorize(violent_ellen_cp, probs = c(0.01, 0.99)),
-    property_ellen_winsorize_cp = Winsorize(property_ellen_cp, probs = c(0.01, 0.99))
-  )
+    property_ellen_winsorize_cp = Winsorize(property_ellen_cp, probs = c(0.01, 0.99)))
 ```
 
 
@@ -147,15 +148,13 @@ cp_oz2 <- cp_oz2 %>%
 ar_oz3 <- ar_oz2 %>% ungroup()
 cp_oz3 <- cp_oz2 %>% ungroup()
 
-
-# withOUT remerging ACS
-analysis_file <- full_join(cp_oz3, ar_oz3 %>%
+analysis_file <- left_join(cp_oz3, ar_oz3 %>%
   select(
     GEOID_b, quarter, violent_ellen_ar, violent_ellen_winsorize_ar,
     property_ellen_ar, property_ellen_winsorize_ar,
     distance_boundary_ar
   ),
-by = c("GEOID_b", "quarter")
+by = c("GEOID_b" = "GEOID_b", "quarter" = "quarter")
 ) %>%
   arrange(quarter) %>%
   pivot_wider(
@@ -193,6 +192,9 @@ by = c("GEOID_b", "quarter")
   # Not sure if I did that right? Or in the right place? Doesn't seem to do anything?
   mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
   mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
+=======
+  )
+>>>>>>> f65ae740e399f1d503af3b1ca82833ba7368bf0e
 ```
 
 ```{r}
@@ -200,6 +202,7 @@ by = c("GEOID_b", "quarter")
 unique_geoid_missing <- analysis_file %>%
   filter(is.na(pct_white)) %>%
   distinct(GEOID)
+
 acs_oz_vars %>%
   inner_join(unique_geoid_missing, by = "GEOID") %>%
   filter(!is.na(pct_white)) %>%
@@ -207,6 +210,7 @@ acs_oz_vars %>%
   magrittr::equals(0) %>%
   stopifnot()
 ```
+
 
 ```{r}
 # write to csv
