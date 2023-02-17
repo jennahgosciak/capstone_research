@@ -20,8 +20,6 @@ library(DescTools)
 ar_oz <- read_csv("../00_data/ar_oz.csv")
 cp_oz <- read_csv("../00_data/cp_oz.csv")
 
-ar_oz %>%
-  head()
 ```
 
 ```{r}
@@ -32,11 +30,8 @@ acs_varlist
 
 acs_vars <- acs_varlist$variable
 names(acs_vars) <- acs_varlist$description
-
 constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
 urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
-
-ar_oz
 ```
 
 ```{r}
@@ -45,10 +40,7 @@ acs_oz <- read_csv("../00_data/acs_oz.csv")
 
 acs_oz_vars <- acs_oz %>%
   select(GEOID, constructs, urbanvars)
-
-acs_oz_vars
 ```
-
 
 ```{r}
 # attempt at adjusted differences for arrests
@@ -76,10 +68,15 @@ ar_oz2 <- ar_oz %>%
     GEOID_b, GEOID, post, quarter, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
     pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64, buffer
   ) %>%
+  rename(
+    violent_ellen_ar = violent_ellen,
+    property_ellen_ar = property_ellen,
+    distance_boundary_ar = distance_boundary
+  ) %>%
   summarize(
-    violent_ellen = sum(violent_ellen, na.rm = T),
-    property_ellen = sum(property_ellen, na.rm = T),
-    distance_boundary = mean(distance_boundary, na.rm = T)
+    violent_ellen_ar = sum(violent_ellen_ar, na.rm = T),
+    property_ellen_ar = sum(property_ellen_ar, na.rm = T),
+    distance_boundary_ar = mean(distance_boundary_ar, na.rm = T)
   ) %>%
   mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag)) %>%
   filter(post == 1 & !is.na(quarter))
@@ -113,10 +110,15 @@ cp_oz2 <- cp_oz %>%
     GEOID_b, GEOID, post, quarter, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
     pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64, buffer
   ) %>%
+  rename(
+    violent_ellen_cp = violent_ellen,
+    property_ellen_cp = property_ellen,
+    distance_boundary_cp = distance_boundary
+  ) %>%
   summarize(
-    violent_ellen = sum(violent_ellen, na.rm = T),
-    property_ellen = sum(property_ellen, na.rm = T),
-    distance_boundary = mean(distance_boundary, na.rm = T)
+    violent_ellen_cp = sum(violent_ellen_cp, na.rm = T),
+    property_ellen_cp = sum(property_ellen_cp, na.rm = T),
+    distance_boundary_cp = mean(distance_boundary_cp, na.rm = T)
   ) %>%
   mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag)) %>%
   filter(post == 1 & !is.na(quarter))
@@ -130,81 +132,90 @@ stopifnot(eeptools::isid(cp_oz2, c("GEOID_b", "post", "quarter")))
 # Winsorize
 ar_oz2 <- ar_oz2 %>%
   mutate(
-    violent_ellen_winsorize_ar = Winsorize(violent_ellen, probs = c(0.01, 0.99)),
-    property_ellen_winsorize_ar = Winsorize(property_ellen, probs = c(0.01, 0.99))
-  ) %>%
-  pivot_wider(
-    id_cols = c("GEOID_b", "GEOID", "post", "distance_boundary"), names_from = "quarter", values_from =
-      ends_with("_ar")
-  ) %>%
-  left_join(acs_oz_vars, by = "GEOID") %>%
-  mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
-  mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
+    violent_ellen_winsorize_ar = Winsorize(violent_ellen_ar, probs = c(0.01, 0.99)),
+    property_ellen_winsorize_ar = Winsorize(property_ellen_ar, probs = c(0.01, 0.99))
+  )
 
 cp_oz2 <- cp_oz2 %>%
   mutate(
-    violent_ellen_winsorize_cp = Winsorize(violent_ellen, probs = c(0.01, 0.99)),
-    property_ellen_winsorize_cp = Winsorize(property_ellen, probs = c(0.01, 0.99))
-  ) %>%
+    violent_ellen_winsorize_cp = Winsorize(violent_ellen_cp, probs = c(0.01, 0.99)),
+    property_ellen_winsorize_cp = Winsorize(property_ellen_cp, probs = c(0.01, 0.99)))
+```
+
+
+```{r}
+# Create one file
+ar_oz3 <- ar_oz2 %>% ungroup()
+cp_oz3 <- cp_oz2 %>% ungroup()
+
+analysis_file <- left_join(cp_oz3, ar_oz3 %>%
+  select(
+    GEOID_b, quarter, violent_ellen_ar, violent_ellen_winsorize_ar,
+    property_ellen_ar, property_ellen_winsorize_ar,
+    distance_boundary_ar
+  ),
+by = c("GEOID_b" = "GEOID_b", "quarter" = "quarter")
+) %>%
+  arrange(quarter) %>%
   pivot_wider(
-    id_cols = c("GEOID_b", "GEOID", "post", "distance_boundary"),
-    names_from = "quarter", values_from = ends_with("_cp")
+    names_from = quarter,
+    values_from = c(
+      violent_ellen_ar, violent_ellen_winsorize_ar, property_ellen_ar,
+      property_ellen_winsorize_ar, distance_boundary_ar,
+      violent_ellen_cp, violent_ellen_winsorize_cp, property_ellen_cp,
+      property_ellen_winsorize_cp, distance_boundary_cp
+    )
+  ) %>%
+  mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
+  mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
+
+# WITH remerging ACS but keeping original as well (so covaraite.x and covariate.y)
+analysis_file2 <- full_join(cp_oz3, ar_oz3 %>%
+  select(
+    GEOID_b, quarter, violent_ellen_ar, violent_ellen_winsorize_ar,
+    property_ellen_ar, property_ellen_winsorize_ar,
+    distance_boundary_ar
+  ),
+by = c("GEOID_b", "quarter")
+) %>%
+  arrange(quarter) %>%
+  pivot_wider(
+    names_from = quarter,
+    values_from = c(
+      violent_ellen_ar, violent_ellen_winsorize_ar, property_ellen_ar,
+      property_ellen_winsorize_ar, distance_boundary_ar,
+      violent_ellen_cp, violent_ellen_winsorize_cp, property_ellen_cp,
+      property_ellen_winsorize_cp, distance_boundary_cp
+    )
   ) %>%
   left_join(acs_oz_vars, by = "GEOID") %>%
+  # Not sure if I did that right? Or in the right place? Doesn't seem to do anything?
   mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
   mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
 ```
 
 ```{r}
-# write to csv
-ar_oz2
-ar_oz2 %>%
-  write_csv("../00_data/analysis_file_arrest.csv")
+# check missingness
+unique_geoid_missing <- analysis_file %>%
+  filter(is.na(pct_white)) %>%
+  distinct(GEOID)
 
-cp_oz2 %>%
-  write_csv("../00_data/analysis_file_complaints.csv")
+acs_oz_vars %>%
+  inner_join(unique_geoid_missing, by = "GEOID") %>%
+  filter(!is.na(pct_white)) %>%
+  nrow() %>%
+  magrittr::equals(0) %>%
+  stopifnot()
 ```
+
 
 ```{r}
-# Examples but cut later
-ar_oz2 %>%
-  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>%
-  filter(!is.na(treatment)) %>%
-  filter(abs(distance_boundary) < 193) %>%
-  ggplot(aes(x = distance_boundary, y = violent_ellen_winsorize, group = DESIGNATED, color = DESIGNATED)) +
-  geom_point(alpha = 0.25) +
-  # geom_smooth(method="lm") +
-  theme_classic() +
-  facet_wrap(~ if_else(post == 1, "(1) Post", ("(0) Pre")))
+# write to csv
 
-points <- ar_oz2 %>%
-  filter(abs(distance_boundary) < 193, violent_ellen_winsorize < 15) %>%
-  mutate(distance_boundary = round(distance_boundary, 1)) %>%
-  group_by(distance_boundary) %>%
-  summarize(
-    violent_ellen_winsorize = mean(violent_ellen_winsorize),
-    num_obs = n()
-  )
-
-ar_oz2 %>%
-  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>%
-  filter(!is.na(treatment)) %>%
-  filter(abs(distance_boundary) < 193) %>%
-  ggplot(aes(x = distance_boundary, y = property_ellen_winsorize, group = DESIGNATED, color = DESIGNATED)) +
-  geom_point(alpha = 0.25) +
-  # geom_smooth(method="lm") +
-  theme_classic() +
-  facet_wrap(~ if_else(post == 1, "(1) Post", ("(0) Pre")))
-
-points <- ar_oz2 %>%
-  filter(abs(distance_boundary) < 193, property_ellen_winsorize < 15) %>%
-  mutate(distance_boundary = round(distance_boundary, 1)) %>%
-  group_by(distance_boundary) %>%
-  summarize(
-    property_ellen_winsorize = mean(property_ellen_winsorize),
-    num_obs = n()
-  )
+analysis_file %>%
+  write_csv("../00_data/analysis_file.csv")
 ```
+
 
 
 
