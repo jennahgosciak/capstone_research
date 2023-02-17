@@ -192,9 +192,6 @@ by = c("GEOID_b", "quarter")
   # Not sure if I did that right? Or in the right place? Doesn't seem to do anything?
   mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
   mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
-=======
-  )
->>>>>>> f65ae740e399f1d503af3b1ca82833ba7368bf0e
 ```
 
 ```{r}
