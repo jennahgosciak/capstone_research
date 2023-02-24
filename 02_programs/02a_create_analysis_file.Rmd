@@ -24,10 +24,12 @@ centroid_distances <- st_read("../03_output/centroid_distances.geojson") %>%
   as.data.frame() %>%
   select(GEOID_b, centroid_distance_boundary, DESIGNATED) %>%
   # flagging out ineligible census blocks
-  mutate(status = case_when(is.na(DESIGNATED) ~ "Ineligible", 
-                            DESIGNATED == TRUE ~ "Selected",
-                            DESIGNATED == FALSE ~ "Unselected, Eligible")) %>% 
-  mutate(GEOID_b = as.numeric(GEOID_b)) %>% 
+  mutate(status = case_when(
+    is.na(DESIGNATED) ~ "Ineligible",
+    DESIGNATED == TRUE ~ "Selected",
+    DESIGNATED == FALSE ~ "Unselected, Eligible"
+  )) %>%
+  mutate(GEOID_b = as.numeric(GEOID_b)) %>%
   select(-DESIGNATED)
 centroid_distances
 

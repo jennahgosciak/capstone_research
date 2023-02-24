@@ -19,7 +19,7 @@ library(modelsummary)
 library(kableExtra)
 library(gt)
 
-EXCLUDE_INELIGIBLE = FALSE
+EXCLUDE_INELIGIBLE <- FALSE
 file_suffix <- "_keep_ineligible"
 ```
 
@@ -30,7 +30,7 @@ file_suffix <- "_keep_ineligible"
 analysis_file <- read_csv("../00_data/analysis_file.csv")
 
 if (EXCLUDE_INELIGIBLE == T) {
-  analysis_file <- analysis_file %>% 
+  analysis_file <- analysis_file %>%
     filter(status != "Ineligible")
   file_suffix <- NULL
 }
@@ -160,7 +160,7 @@ outcome_data_cp <- analysis_file[, outcomes_cp]
 # balance test data
 balance_data <- analysis_file[, constructs]
 bequiv <- map_dfr(
-  cross2(c(1:4), seq(100,1000,100)),
+  cross2(c(1:4), seq(100, 1000, 100)),
   ~ run_baseline_checks(balance_data, running_var, constructs, p = .[[1]], bandwidth = .[[2]])
 ) %>%
   arrange(outcome, term, order, covs)
@@ -200,11 +200,11 @@ walk(c(1:4), ~ rdplot(outcome_data_ar[[1]], running_var,
 ```
 
 ```{r}
-plot_data <- analysis_file %>% 
-  select(c(GEOID_b, status, centroid_distance_boundary, matches("violent_ellen_winsorize"))) %>% 
+plot_data <- analysis_file %>%
+  select(c(GEOID_b, status, centroid_distance_boundary, matches("violent_ellen_winsorize"))) %>%
   pivot_longer(matches("violent_ellen_winsorize")) %>%
-  separate(name, c("crime_type", "method", "winsorize", "ar_cp", "quarter")) %>% 
-  filter(ar_cp == "ar") %>% 
+  separate(name, c("crime_type", "method", "winsorize", "ar_cp", "quarter")) %>%
+  filter(ar_cp == "ar") %>%
   mutate(treatment = if_else(status == "Selected", 1, 0))
 
 plot_data %>%
@@ -214,14 +214,13 @@ plot_data %>%
   # geom_smooth(method="lm") +
   theme_classic() +
   facet_wrap(~quarter)
-
 ```
 ```{r}
 points <- analysis_file %>%
   filter(abs(centroid_distance_boundary) < 193) %>%
   mutate(centroid_distance_boundary = round(centroid_distance_boundary, 1)) %>%
   group_by(centroid_distance_boundary) %>%
-  summarize(across(matches("violent_ellen_winsorize"), ~mean(., na.rm = T))) %>% 
+  summarize(across(matches("violent_ellen_winsorize"), ~ mean(., na.rm = T))) %>%
   pivot_longer(-centroid_distance_boundary)
 
 points
@@ -229,9 +228,9 @@ points
 
 ```{r}
 plot_data %>%
-  filter(abs(centroid_distance_boundary) < 193) %>% 
+  filter(abs(centroid_distance_boundary) < 193) %>%
   ggplot(aes(x = centroid_distance_boundary, y = value, color = status)) +
-  geom_point(data = points, aes(x = centroid_distance_boundary, y = value), alpha = .2, inherit.aes = F)  +
+  geom_point(data = points, aes(x = centroid_distance_boundary, y = value), alpha = .2, inherit.aes = F) +
   geom_smooth(method = "lm") +
   theme_classic() +
   facet_wrap(~quarter)
