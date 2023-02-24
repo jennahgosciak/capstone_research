@@ -23,9 +23,12 @@ cp_oz <- read_csv("../00_data/cp_oz.csv")
 centroid_distances <- st_read("../03_output/centroid_distances.geojson") %>%
   as.data.frame() %>%
   select(GEOID_b, centroid_distance_boundary, DESIGNATED) %>%
-  # filtering out ineligible census blocks
-  filter(!is.na(DESIGNATED)) %>%
-  mutate(GEOID_b = as.numeric(GEOID_b))
+  # flagging out ineligible census blocks
+  mutate(status = case_when(is.na(DESIGNATED) ~ "Ineligible", 
+                            DESIGNATED == TRUE ~ "Selected",
+                            DESIGNATED == FALSE ~ "Unselected, Eligible")) %>% 
+  mutate(GEOID_b = as.numeric(GEOID_b)) %>% 
+  select(-DESIGNATED)
 centroid_distances
 
 # checking for uniqueness
@@ -77,11 +80,10 @@ ar_oz2 <- ar_oz %>%
     treatment = if_else(DESIGNATED == T, 1, 0),
     distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)
   ) %>%
-  filter(!is.na(DESIGNATED)) %>% # & buffer == 1
   # note: calculating this at the Census block level
   mutate(post = if_else(arrest_date >= mdy("04-01-2018"), 1, 0)) %>%
   group_by(
-    GEOID_b, GEOID, quarter, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
+    GEOID_b, GEOID, quarter, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
     pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64
   ) %>%
   rename(
@@ -124,9 +126,8 @@ cp_oz2 <- cp_oz %>%
     treatment = if_else(DESIGNATED == T, 1, 0),
     distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)
   ) %>%
-  filter(!is.na(DESIGNATED)) %>% # & buffer == 1
   group_by(
-    GEOID_b, GEOID, quarter, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
+    GEOID_b, GEOID, quarter, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
     pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64
   ) %>%
   rename(
@@ -191,7 +192,7 @@ analysis_file <- full_join(ar_oz3, cp_oz3,
   mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
   mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .))) %>%
   # make distance negative if inside the boundary
-  mutate(centroid_distance_boundary = if_else(DESIGNATED == T, -1 * centroid_distance_boundary,
+  mutate(centroid_distance_boundary = if_else(status == "Selected", -1 * centroid_distance_boundary,
     centroid_distance_boundary
   ))
 
@@ -218,6 +219,7 @@ acs_oz_vars %>%
 
 ```{r}
 # write to csv
+analysis_file
 
 analysis_file %>%
   write_csv("../00_data/analysis_file.csv")

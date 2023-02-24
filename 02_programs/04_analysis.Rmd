@@ -18,6 +18,9 @@ library(stargazer)
 library(modelsummary)
 library(kableExtra)
 library(gt)
+
+EXCLUDE_INELIGIBLE = FALSE
+file_suffix <- "_keep_ineligible"
 ```
 
 # Load Data
@@ -25,6 +28,12 @@ library(gt)
 ```{r, include=F}
 # download data
 analysis_file <- read_csv("../00_data/analysis_file.csv")
+
+if (EXCLUDE_INELIGIBLE == T) {
+  analysis_file <- analysis_file %>% 
+    filter(status != "Ineligible")
+  file_suffix <- NULL
+}
 
 analysis_file %>%
   head()
@@ -132,10 +141,6 @@ run_model_set <- function(outcome_data, running_var, outcomes, p, covs) {
 ```
 
 ```{r}
-analysis_file
-```
-
-```{r}
 # define data and outcomes
 outcomes_ar <- map(
   c("violent_ellen_winsorize_ar_", "property_ellen_winsorize_ar_"),
@@ -155,15 +160,27 @@ outcome_data_cp <- analysis_file[, outcomes_cp]
 # balance test data
 balance_data <- analysis_file[, constructs]
 bequiv <- map_dfr(
-  c(1:4),
-  ~ run_baseline_checks(balance_data, running_var, constructs, p = ., bandwidth = 100)
+  cross2(c(1:4), seq(100,1000,100)),
+  ~ run_baseline_checks(balance_data, running_var, constructs, p = .[[1]], bandwidth = .[[2]])
 ) %>%
   arrange(outcome, term, order, covs)
 
 bequiv
 bequiv %>%
-  write_csv(str_glue("../03_output/baseline_{Sys.Date()}.csv"))
+  write_csv(str_glue("../03_output/baseline_{Sys.Date()}{file_suffix}.csv"))
 ```
+```{r}
+data <- list(
+  id = c("John", "Jane"),
+  greeting = c("Hello.", "Bonjour."),
+  sep = c("! ", "... ")
+)
+
+data |>
+  cross() |>
+  map(lift(paste))
+```
+
 
 ```{r}
 output <- map_dfr(
@@ -180,7 +197,7 @@ output %>%
   select(-c(measurement, winsorize)) %>%
   select(crime_type, arrest_or_complaint, term, order, covs, quarter, everything()) %>%
   arrange(crime_type, arrest_or_complaint, term, order, covs, quarter) %>%
-  write_csv(str_glue("../03_output/results_{Sys.Date()}.csv"))
+  write_csv(str_glue("../03_output/results_{Sys.Date()}{file_suffix}.csv"))
 ```
 
 ```{r}
@@ -194,15 +211,21 @@ walk(c(1:4), ~ rdplot(outcome_data_ar[[1]], running_var,
 ```
 
 ```{r}
-# ar_oz2 %>%
-#   mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>%
-#   filter(!is.na(treatment)) %>%
-#   filter(abs(centroid_distance_boundary) < 193) %>%
-#   ggplot(aes(x = centroid_distance_boundary, y = violent_ellen, group = DESIGNATED, color = DESIGNATED)) +
-#   geom_point(alpha = 0.25) +
-#   # geom_smooth(method="lm") +
-#   theme_classic() +
-#   facet_wrap(~ if_else(quarter > 0, "(1) Post", ("(0) Pre")))
+analysis_file %>% 
+  select(c(GEOID_b, DESIGNATED, starts_with("violent_ellen"))) %>% 
+  pivot_longer(starts_with("violent_ellen")) %>%
+  mutate(treatment = if_else(designated == T, 1, 0))
+
+```
+```{r}
+%>%
+  filter(!is.na(treatment)) %>%
+  filter(abs(centroid_distance_boundary) < 193) %>%
+  ggplot(aes(x = centroid_distance_boundary, y = violent_ellen, group = DESIGNATED, color = DESIGNATED)) +
+  geom_point(alpha = 0.25) +
+  # geom_smooth(method="lm") +
+  theme_classic() +
+  facet_wrap(~ if_else(quarter > 0, "(1) Post", ("(0) Pre")))
 #
 # points <- ar_oz2 %>%
 #   filter(abs(distance_boundary) < 193, violent_ellen < 15) %>%
