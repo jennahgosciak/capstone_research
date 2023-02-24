@@ -192,6 +192,10 @@ centroid_distances %>%
 ```
 
 ```{r}
+# compute
+```
+
+```{r}
 st_oz <- st_sf %>%
   st_join(cb, left = TRUE) %>%
   st_join(oz_buffer, left = TRUE) %>%
