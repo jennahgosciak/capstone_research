@@ -169,17 +169,6 @@ bequiv
 bequiv %>%
   write_csv(str_glue("../03_output/baseline_{Sys.Date()}{file_suffix}.csv"))
 ```
-```{r}
-data <- list(
-  id = c("John", "Jane"),
-  greeting = c("Hello.", "Bonjour."),
-  sep = c("! ", "... ")
-)
-
-data |>
-  cross() |>
-  map(lift(paste))
-```
 
 
 ```{r}
@@ -211,47 +200,41 @@ walk(c(1:4), ~ rdplot(outcome_data_ar[[1]], running_var,
 ```
 
 ```{r}
-analysis_file %>% 
-  select(c(GEOID_b, DESIGNATED, starts_with("violent_ellen"))) %>% 
-  pivot_longer(starts_with("violent_ellen")) %>%
-  mutate(treatment = if_else(designated == T, 1, 0))
+plot_data <- analysis_file %>% 
+  select(c(GEOID_b, status, centroid_distance_boundary, matches("violent_ellen_winsorize"))) %>% 
+  pivot_longer(matches("violent_ellen_winsorize")) %>%
+  separate(name, c("crime_type", "method", "winsorize", "ar_cp", "quarter")) %>% 
+  filter(ar_cp == "ar") %>% 
+  mutate(treatment = if_else(status == "Selected", 1, 0))
 
-```
-```{r}
-%>%
-  filter(!is.na(treatment)) %>%
+plot_data %>%
   filter(abs(centroid_distance_boundary) < 193) %>%
-  ggplot(aes(x = centroid_distance_boundary, y = violent_ellen, group = DESIGNATED, color = DESIGNATED)) +
+  ggplot(aes(x = centroid_distance_boundary, y = value, group = status, color = status)) +
   geom_point(alpha = 0.25) +
   # geom_smooth(method="lm") +
   theme_classic() +
-  facet_wrap(~ if_else(quarter > 0, "(1) Post", ("(0) Pre")))
-#
-# points <- ar_oz2 %>%
-#   filter(abs(distance_boundary) < 193, violent_ellen < 15) %>%
-#   mutate(distance_boundary = round(distance_boundary, 1)) %>%
-#   group_by(distance_boundary) %>%
-#   summarize(
-#     violent_ellen = mean(violent_ellen),
-#     num_obs = n()
-#   )
-#
-# ar_oz2 %>%
-#   mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>%
-#   filter(abs(distance_boundary) < 193) %>%
-#   ggplot(aes(x = distance_boundary, y = violent_ellen, group = DESIGNATED, color = DESIGNATED)) +
-#   geom_point(data = points, aes(
-#     x = distance_boundary,
-#     y = violent_ellen, size = num_obs
-#   ), alpha = .2, inherit.aes = F) +
-#   geom_smooth(method = "lm") +
-#   facet_wrap(~post)
-#
-# # checking treatment
-# ar_oz2 %>%
-#   mutate(treatment = if_else(distance_boundary >= 0, 1, 0)) %>%
-#   group_by(treatment, DESIGNATED) %>%
-#   summarize(n = n())
+  facet_wrap(~quarter)
+
+```
+```{r}
+points <- analysis_file %>%
+  filter(abs(centroid_distance_boundary) < 193) %>%
+  mutate(centroid_distance_boundary = round(centroid_distance_boundary, 1)) %>%
+  group_by(centroid_distance_boundary) %>%
+  summarize(across(matches("violent_ellen_winsorize"), ~mean(., na.rm = T))) %>% 
+  pivot_longer(-centroid_distance_boundary)
+
+points
+```
+
+```{r}
+plot_data %>%
+  filter(abs(centroid_distance_boundary) < 193) %>% 
+  ggplot(aes(x = centroid_distance_boundary, y = value, color = status)) +
+  geom_point(data = points, aes(x = centroid_distance_boundary, y = value), alpha = .2, inherit.aes = F)  +
+  geom_smooth(method = "lm") +
+  theme_classic() +
+  facet_wrap(~quarter)
 ```
 
 
