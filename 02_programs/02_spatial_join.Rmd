@@ -11,6 +11,7 @@ library(tidyverse)
 library(lubridate)
 library(sf)
 library(magrittr)
+library(stats)
 ```
 
 ```{r}
@@ -190,11 +191,38 @@ centroid_distances
 centroid_distances %>%
   st_write("../03_output/centroid_distances.geojson", delete_dsn = T)
 ```
-
 ```{r}
-# compute
-```
+# compute pairs
+# code is inspired by work from Chen, Glaeser, and Wessel
+x <- centroid_distances %>% 
+  filter(DESIGNATED == T)
+y <- centroid_distances %>% 
+  filter(DESIGNATED == F | is.na(DESIGNATED))
 
+dist_mat <- st_distance(x, y)
+dist_mat
+```
+```{r}
+min_dist_index <- y[apply(as.matrix(dist_mat), 1, which.min), ] %>% 
+  as.data.frame() %>% 
+  magrittr::extract2("GEOID_b")
+min_dist_index
+
+min_dist <- apply(as.matrix(dist_mat), 1, min)
+
+centroid_distance_pairs <- x %>%
+  as.data.frame() %>% 
+  select(GEOID_b) %>% 
+  mutate(dist_pair = min_dist_index,
+         dist = min_dist)
+
+centroid_distance_pairs %>% 
+  as.data.frame() %>% 
+  head()
+
+centroid_distance_pairs %>%
+  write_csv("../03_output/centroid_distance_pairs.csv")
+```
 ```{r}
 st_oz <- st_sf %>%
   st_join(cb, left = TRUE) %>%
