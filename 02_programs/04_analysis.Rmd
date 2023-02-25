@@ -47,8 +47,10 @@ acs_varlist
 acs_vars <- acs_varlist$variable
 names(acs_vars) <- acs_varlist$description
 
-constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
-urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
+constructs <- c("population", "median_earnings", "median_household_income", "median_gross_rent",
+                "pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg",
+                "dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
+
 ```
 
 ```{r}
@@ -151,7 +153,7 @@ outcome_data_ar <- analysis_file[, outcomes_ar]
 running_var <- analysis_file[["centroid_distance_boundary"]]
 covariates <- analysis_file[, constructs]
 
-outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"), ~ str_c(., c(1:7))) %>%
+outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"), ~ str_c(., c("min4", "min3", "min1", 0, c(1:7))) ) %>%
   unlist()
 outcome_data_cp <- analysis_file[, outcomes_cp]
 ```
@@ -165,33 +167,69 @@ bequiv <- map_dfr(
 ) %>%
   arrange(outcome, term, order, covs)
 
-bequiv
+bequiv %>% 
+  mutate(estimate_form= case_when(p.value < 0.01 ~ paste0(round(estimate, 2), "***"),
+                                  p.value < 0.05 ~ paste0(round(estimate, 2), "**"),
+                                  p.value < 0.1 ~ paste0(round(estimate, 2), "*"),
+                                  TRUE ~ paste0(round(estimate, 2))),
+         coef_form = str_c(estimate_form, "\n(", round(std.error, 2),")")) %>% 
+  pivot_wider(id_cols = c("outcome", "covs", "bandwidth.h"), names_from = c("term", "order"),
+              values_from = "coef_form") %>%
+  select(c("outcome", "covs", "bandwidth.h"), matches("Conventional"), matches("Bias")) %>% 
+  mutate(outcome = factor(outcome, levels = constructs, ordered = T)) %>% 
+  arrange( covs, bandwidth.h, outcome) %>%
+  write_csv(str_glue("../03_output/baseline_form_{Sys.Date()}{file_suffix}.csv"))
+
+bequiv %>% 
+  distinct(outcome)
 bequiv %>%
   write_csv(str_glue("../03_output/baseline_{Sys.Date()}{file_suffix}.csv"))
+
+constructs
 ```
 
 
 ```{r}
 output <- map_dfr(
-  c(1:4),
+  c(1,4),
   ~ run_model_set(outcome_data_ar, running_var, outcomes_ar, p = ., covariates)
 ) %>%
   bind_rows(map_dfr(
-    c(1:4),
+    c(1,4),
     ~ run_model_set(outcome_data_cp, running_var, outcomes_cp, p = ., covariates)
   ))
 
-output %>%
+output <- output %>%
   separate(outcome, c("crime_type", "measurement", "winsorize", "arrest_or_complaint", "quarter")) %>%
-  select(-c(measurement, winsorize)) %>%
-  select(crime_type, arrest_or_complaint, term, order, covs, quarter, everything()) %>%
-  arrange(crime_type, arrest_or_complaint, term, order, covs, quarter) %>%
+  select(-c(measurement)) %>%
+  select(crime_type, arrest_or_complaint, winsorize, term, order, covs, quarter, everything()) %>%
+  arrange(crime_type, arrest_or_complaint, term, order, covs, quarter)
+
+output %>%
   write_csv(str_glue("../03_output/results_{Sys.Date()}{file_suffix}.csv"))
+
+
+output %>% 
+  filter(winsorize == "winsorize") %>% 
+  mutate(nobs = rowSums(select(., c(nobs.left, nobs.right)), na.rm = T)) %>% 
+  distinct(nobs, covs, crime_type)
+
+output %>% 
+  filter(winsorize == "winsorize") %>% 
+  mutate(estimate_form= case_when(p.value < 0.01 ~ paste0(round(estimate, 2), "***"),
+                                  p.value < 0.05 ~ paste0(round(estimate, 2), "**"),
+                                  p.value < 0.1 ~ paste0(round(estimate, 2), "*"),
+                                  TRUE ~ paste0(round(estimate, 2))),
+         coef_form = str_c(estimate_form, "\n(", round(std.error, 2),")")) %>% 
+  pivot_wider(id_cols = c("quarter", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint"),
+              values_from = "coef_form") %>%
+  select(c("quarter", "order", "covs"), matches("Conventional"), matches("Bias")) %>% 
+  write_csv(str_glue("../03_output/results_form_{Sys.Date()}{file_suffix}.csv"))
 ```
 
 ```{r}
 # creating plots
-walk(c(1:4), ~ rdplot(outcome_data_ar[[1]], running_var,
+walk(c(1,4), ~ rdplot(outcome_data_ar[[1]], running_var,
   p = ., title = str_glue("RD Plot for p={.}"),
   x.label = "distance", y.label = outcomes[1]
 ))
