@@ -123,8 +123,7 @@ cp_oz2 <- cp_oz %>%
     cmplnt_fr_dt >= mdy("12-01-2019") & cmplnt_fr_dt < mdy("3-01-2020") ~ 7,
     cmplnt_fr_dt >= mdy("3-01-2018") & cmplnt_fr_dt < mdy("6-01-2020") ~ 8,
     cmplnt_fr_dt >= mdy("6-01-2018") & cmplnt_fr_dt < mdy("9-01-2020") ~ 9,
-    cmplnt_fr_dt >= mdy("9-01-2020") & cmplnt_fr_dt < mdy("12-01-2020") ~ 10
-  )) %>%
+    cmplnt_fr_dt >= mdy("9-01-2020") & cmplnt_fr_dt < mdy("12-01-2020") ~ 10)) %>%
   mutate(
     treatment = if_else(DESIGNATED == T, 1, 0),
     distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)
@@ -195,8 +194,7 @@ analysis_file <- full_join(ar_oz3, cp_oz3,
   mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
   mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .))) %>%
   # make distance negative if inside the boundary
-  mutate(centroid_distance_boundary = if_else(status == "Selected", -1 * centroid_distance_boundary,
-    centroid_distance_boundary
+  mutate(centroid_distance_boundary = if_else(status == "Selected", centroid_distance_boundary, -1 * centroid_distance_boundary
   ))
 
 eeptools::isid(analysis_file, "GEOID_b") %>%
@@ -204,6 +202,34 @@ eeptools::isid(analysis_file, "GEOID_b") %>%
 
 analysis_file
 ```
+```{r}
+# file for running with fixed effects
+analysis_file_fe <- full_join(ar_oz3, cp_oz3,
+  by = c("GEOID_b", "quarter", "GEOID")
+) %>%
+  arrange(quarter) %>%
+  mutate(year = case_when(quarter < 0 ~ "year-1",
+                          quarter < 4 ~ "year0",
+                          quarter < 8 ~ "year1",
+                          TRUE ~ NA_character_)) %>% 
+  pivot_wider(
+    id_cols = c(GEOID_b, GEOID, quarter),
+    names_from = year,
+    values_from = c(starts_with("violent_ellen"), starts_with("property_ellen"))
+  ) %>% 
+  mutate(across(`violent_ellen_ar_year-1`:property_ellen_winsorize_cp_year1, ~if_else(is.na(.), 0, .))) %>%
+  full_join(centroid_distances, by = "GEOID_b") %>%
+  left_join(acs_oz_vars, by = "GEOID") %>%
+  mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
+  mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .))) %>%
+  # make distance negative if inside the boundary
+  mutate(centroid_distance_boundary = if_else(status == "Selected", -1 * centroid_distance_boundary,
+    centroid_distance_boundary
+  ))
+
+analysis_file_fe
+```
+
 
 ```{r}
 # check missingness
@@ -226,6 +252,9 @@ analysis_file
 
 analysis_file %>%
   write_csv("../00_data/analysis_file.csv")
+
+analysis_file_fe %>%
+  write_csv("../00_data/analysis_file_fe.csv")
 ```
 
 

@@ -19,24 +19,45 @@ library(modelsummary)
 library(kableExtra)
 library(gt)
 
-EXCLUDE_INELIGIBLE <- FALSE
+EXCLUDE_INELIGIBLE <- F
 file_suffix <- "_keep_ineligible"
 ```
+
+```{r}
+# load centroid pairs
+centroid_distance_pairs <- read_csv("../03_output/centroid_distance_pairs.csv")
+centroid_distance_pairs
+```
+
 
 # Load Data
 
 ```{r, include=F}
 # download data
-analysis_file <- read_csv("../00_data/analysis_file.csv")
+analysis_file <- read_csv("../00_data/analysis_file.csv") %>% 
+  mutate(treatment = if_else(status == "Selected", 1, 0)) %>% 
+  mutate(treatment2 = case_when(status == "Selected" ~ 1,
+                                GEOID_b %in% centroid_distance_pairs$dist_pair ~ 0,
+                                TRUE ~ NA_real_))
+
+analysis_file_fe <- read_csv("../00_data/analysis_file_fe.csv") %>% 
+  mutate(quarter1 = if_else(quarter %in% c(-4, 0, 4), 1, 0),
+         quarter2 =  if_else(quarter %in% c(-3, 1, 5), 1, 0),
+         quarter3 =  if_else(quarter %in% c(-2, 2, 6), 1, 0),
+         quarter4 =  if_else(quarter %in% c(-1, 3, 7), 1, 0))
 
 if (EXCLUDE_INELIGIBLE == T) {
   analysis_file <- analysis_file %>%
     filter(status != "Ineligible")
-  file_suffix <- NULL
+  file_suffix <- NA
 }
 
 analysis_file %>%
   head()
+
+analysis_file %>% 
+  group_by(treatment, treatment2) %>% 
+  summarize(n = n())
 ```
 ```{r}
 # load varlist
@@ -48,7 +69,7 @@ acs_vars <- acs_varlist$variable
 names(acs_vars) <- acs_varlist$description
 
 constructs <- c("population", "median_earnings", "median_household_income", "median_gross_rent",
-                "pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg",
+                "pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", 
                 "dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
 
 ```
@@ -102,7 +123,70 @@ tidy.rdrobust <- function(outcome, x, outcome_name, p = 1, covs = NULL, ...) {
 ```
 
 ```{r}
-run_baseline_checks <- function(outcome_data, running_var, outcomes, p, bandwidth) {
+run_baseline_checks <- function(data, outcome, bandwidth) {
+  # drop missing covariate values
+  data <- data %>% 
+    filter(abs(centroid_distance_boundary) < bandwidth)
+  
+  mod <- lm(paste0(outcome, "~ treatment"), data=data)
+  
+  vals <- coeftest(mod, vcov = vcovHC(mod, type = "HC0"))
+  int <- vals[1, 1]
+  treat_est <- vals[2, 1]
+  treat_se <- vals[2, 2]
+  treat_pval <- vals[2, 4]
+  asterisk <- case_when(
+    treat_pval < 0.01 ~ "***",
+    treat_pval < 0.05 ~ "**",
+    treat_pval < 0.1 ~ "*",
+    TRUE ~ NA_character_
+  )
+
+  if (str_detect(outcome, "pct") | str_detect(outcome, "rate") |
+    str_detect(outcome, "SE_Flag")) {
+    treat_est <- treat_est * 100
+    int <- int * 100
+    treat_se <- treat_se * 100
+  }
+  
+  treat_obs <- data %>%
+    filter(treatment == 1) %>%
+    nrow()
+  
+  comp_obs <- data %>%
+    filter(treatment == 0) %>%
+    nrow()
+  
+  mean1 <- round(int + treat_est, 2)
+  treat_est <- round(treat_est, 2)
+  treat_se <- round(treat_se, 2)
+
+  treat_est <- if_else(str_detect(outcome, "median") | outcome %in% c("population"), 
+                                 formatC(round(treat_est), mode="integer", big.mark=","), as.character(treat_est))
+  
+  treat_se <- if_else(str_detect(outcome, "median") | outcome %in% c("population"), 
+                             formatC(round(treat_se), big.mark=",", mode="integer"), as.character(round(treat_se, 2)))
+  
+  difference <- if_else(!is.na(asterisk), paste0(treat_est, asterisk), treat_est)
+  
+  data.frame(
+    "var" = outcome,
+    "mean_1" = mean1,
+    "mean_0" = round(int, 2),
+    "difference" = difference,
+    "se" = treat_se,
+    "pval" = round(treat_pval, 4),
+    "N" = nobs(mod),
+    "treat_n" = treat_obs,
+    "comp_n" = comp_obs,
+    "bandwidth" = bandwidth
+  )
+}
+```
+
+
+```{r}
+run_baseline_checks_rdrobust <- function(outcome_data, running_var, outcomes, p, bandwidth) {
   # vector to drop missing covariates
   not_na_rows <- outcome_data %>%
     is.na() %>%
@@ -140,6 +224,24 @@ run_model_set <- function(outcome_data, running_var, outcomes, p, covs) {
       ~ tidy.rdrobust(.x, running_var_cov, .y, p = p, covs = covs)
     )))
 }
+
+run_model_set_fe <- function(outcome_data, running_var, outcomes, p, covs) {
+  # vector to drop missing covariates
+  keep_cov <- covs %>%
+    is.na() %>%
+    rowSums() %>%
+    magrittr::equals(0)
+  
+  # drop missing covariate values
+  outcome_data_cov <- outcome_data[keep_cov, ]
+  running_var_cov <- running_var[keep_cov]
+  covs <- covs[keep_cov, ]
+  
+  sum(is.na(running_var_cov))
+  return(map2_dfr(
+      outcome_data_cov, outcomes,
+      ~ tidy.rdrobust(.x, running_var_cov, .y, p = p, covs = covs)))
+}
 ```
 
 ```{r}
@@ -158,36 +260,59 @@ outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp
 outcome_data_cp <- analysis_file[, outcomes_cp]
 ```
 
+## BASELINE EQUIVALENCE
+
 ```{r}
 # balance test data
-balance_data <- analysis_file[, constructs]
-bequiv <- map_dfr(
-  cross2(c(1:4), seq(100, 1000, 100)),
-  ~ run_baseline_checks(balance_data, running_var, constructs, p = .[[1]], bandwidth = .[[2]])
-) %>%
-  arrange(outcome, term, order, covs)
+bequiv <- map_dfr(cross2(constructs,
+  c(100, seq(200, 1000, 200))),
+  ~ run_baseline_checks(analysis_file, outcome = .[[1]], bandwidth = .[[2]])
+)
 
-bequiv %>% 
-  mutate(estimate_form= case_when(p.value < 0.01 ~ paste0(round(estimate, 2), "***"),
-                                  p.value < 0.05 ~ paste0(round(estimate, 2), "**"),
-                                  p.value < 0.1 ~ paste0(round(estimate, 2), "*"),
-                                  TRUE ~ paste0(round(estimate, 2))),
-         coef_form = str_c(estimate_form, "\n(", round(std.error, 2),")")) %>% 
-  pivot_wider(id_cols = c("outcome", "covs", "bandwidth.h"), names_from = c("term", "order"),
-              values_from = "coef_form") %>%
-  select(c("outcome", "covs", "bandwidth.h"), matches("Conventional"), matches("Bias")) %>% 
-  mutate(outcome = factor(outcome, levels = constructs, ordered = T)) %>% 
-  arrange( covs, bandwidth.h, outcome) %>%
-  write_csv(str_glue("../03_output/baseline_form_{Sys.Date()}{file_suffix}.csv"))
+n_vals <- bequiv %>% 
+  select(var, N, bandwidth) %>% 
+  group_by(bandwidth) %>% 
+  summarize(N = formatC(max(N), big.mark=",")) %>%
+  mutate(var = "Total") %>% 
+  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "N") 
 
-bequiv %>% 
-  distinct(outcome)
+if (!is.null(file_suffix)) {
+  fname <- str_glue("../03_output/baseline_form_lm {Sys.Date()}{file_suffix}.csv")
+} else{
+  fname <- str_glue("../03_output/baseline_form_lm {Sys.Date()}.csv")
+}
+
 bequiv %>%
-  write_csv(str_glue("../03_output/baseline_{Sys.Date()}{file_suffix}.csv"))
+  mutate(difference = str_c(difference, "\n(", se, ")")) %>% 
+  select(var, difference, bandwidth) %>%
+  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "difference") %>%
+  bind_rows(n_vals) %>% 
+  write_csv(fname)
+```
+```{r}
+# balance test data
+bequiv <- map_dfr(cross2(constructs,
+                         seq(200, 1000, 200)),
+  ~ run_baseline_checks(analysis_file %>% 
+                          select(-treatment, treatment = treatment2), outcome = .[[1]], bandwidth = .[[2]])
+)
 
-constructs
+n_vals <- bequiv %>% 
+  select(var, N, bandwidth) %>% 
+  group_by(bandwidth) %>% 
+  summarize(N = formatC(max(N), big.mark=",")) %>%
+  mutate(var = "Total") %>% 
+  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "N") 
+
+bequiv %>%
+  mutate(difference = str_c(difference, "\n(", se, ")")) %>% 
+  select(var, difference, bandwidth) %>%
+  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "difference") %>%
+  bind_rows(n_vals) %>% 
+  write_csv(str_glue("../03_output/baseline_form_lm_paired {Sys.Date()}{file_suffix}.csv"))
 ```
 
+## RESULTS
 
 ```{r}
 output <- map_dfr(
@@ -208,7 +333,7 @@ output <- output %>%
 output %>%
   write_csv(str_glue("../03_output/results_{Sys.Date()}{file_suffix}.csv"))
 
-
+output
 output %>% 
   filter(winsorize == "winsorize") %>% 
   mutate(nobs = rowSums(select(., c(nobs.left, nobs.right)), na.rm = T)) %>% 
@@ -223,10 +348,70 @@ output %>%
          coef_form = str_c(estimate_form, "\n(", round(std.error, 2),")")) %>% 
   pivot_wider(id_cols = c("quarter", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint"),
               values_from = "coef_form") %>%
-  select(c("quarter", "order", "covs"), matches("Conventional"), matches("Bias")) %>% 
+  select(c("quarter", "order", "covs"), matches("Conventional"), matches("Bias"), matches("Robust")) %>% 
+  select(c("quarter", "order", "covs"), matches("property"), matches("violent")) %>% 
   write_csv(str_glue("../03_output/results_form_{Sys.Date()}{file_suffix}.csv"))
 ```
 
+## FIXED EFFECTS
+```{r}
+# define data and outcomes
+outcomes_ar <- map(
+  c("violent_ellen_winsorize_ar_", "property_ellen_winsorize_ar_"),
+  ~ str_c(., c("year0", "year1"))
+) %>%
+  unlist()
+
+running_var <- analysis_file_fe[["centroid_distance_boundary"]]
+outcome_data_ar <- analysis_file_fe[, outcomes_ar]
+covariates <- analysis_file_fe[, c(constructs, str_c("quarter", 1:3))]
+
+outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"), ~ str_c(., c("year0", "year1"))) %>%
+  unlist()
+
+outcome_data_cp <- analysis_file_fe[, outcomes_cp]
+```
+
+```{r}
+output_fe <- map_dfr(
+  c(1,4),
+  ~ run_model_set_fe(outcome_data_ar, running_var, outcomes_ar, p = ., covariates)
+) %>%
+  bind_rows(map_dfr(
+    c(1,4),
+    ~ run_model_set_fe(outcome_data_cp, running_var, outcomes_cp, p = ., covariates)
+  ))
+
+output_fe <- output_fe %>%
+  separate(outcome, c("crime_type", "measurement", "winsorize", "arrest_or_complaint", "year")) %>%
+  select(-c(measurement)) %>%
+  select(crime_type, arrest_or_complaint, winsorize, term, order, covs, year, everything()) %>%
+  arrange(crime_type, arrest_or_complaint, term, order, covs, year)
+
+output_fe %>%
+  write_csv(str_glue("../03_output/results_fe_{Sys.Date()}{file_suffix}.csv"))
+
+output_fe
+output_fe %>% 
+  filter(winsorize == "winsorize") %>% 
+  mutate(nobs = rowSums(select(., c(nobs.left, nobs.right)), na.rm = T)) %>% 
+  distinct(nobs, covs, crime_type)
+
+output_fe %>% 
+  filter(winsorize == "winsorize") %>% 
+  mutate(estimate_form= case_when(p.value < 0.01 ~ paste0(round(estimate, 2), "***"),
+                                  p.value < 0.05 ~ paste0(round(estimate, 2), "**"),
+                                  p.value < 0.1 ~ paste0(round(estimate, 2), "*"),
+                                  TRUE ~ paste0(round(estimate, 2))),
+         coef_form = str_c(estimate_form, "\n(", round(std.error, 2),")")) %>% 
+  pivot_wider(id_cols = c("year", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint"),
+              values_from = "coef_form") %>%
+  select(c("year", "order", "covs"), matches("Conventional"), matches("Bias"), matches("Robust")) %>% 
+  select(c("year", "order", "covs"), matches("property"), matches("violent")) %>% 
+  write_csv(str_glue("../03_output/results_form__fe_{Sys.Date()}{file_suffix}.csv"))
+```
+
+## PLOTS
 ```{r}
 # creating plots
 walk(c(1,4), ~ rdplot(outcome_data_ar[[1]], running_var,
