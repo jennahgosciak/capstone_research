@@ -46,9 +46,11 @@ acs_varlist
 
 acs_vars <- acs_varlist$variable
 names(acs_vars) <- acs_varlist$description
-constructs <- c("population", "median_earnings", "median_household_income", "median_gross_rent",
-                "pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg",
-                "dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
+constructs <- c(
+  "population", "median_earnings", "median_household_income", "median_gross_rent",
+  "pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg",
+  "dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64"
+)
 ```
 
 ```{r}
@@ -63,21 +65,21 @@ acs_oz_vars <- acs_oz %>%
 # attempt at adjusted differences for arrests
 ar_oz2 <- ar_oz %>%
   mutate(quarter = case_when(
-    arrest_date < mdy("3-01-2017") ~ -4,
-    arrest_date >= mdy("3-01-2017") & arrest_date < mdy("6-01-2017") ~ -3,
-    arrest_date >= mdy("6-01-2017") & arrest_date < mdy("9-01-2017") ~ -2,
-    arrest_date >= mdy("12-01-2017") & arrest_date < mdy("03-01-2018") ~ -1,
-    arrest_date >= mdy("03-01-2018") & arrest_date < mdy("06-01-2018") ~ 0,
-    arrest_date >= mdy("06-01-2018") & arrest_date < mdy("09-01-2018") ~ 1,
-    arrest_date >= mdy("09-01-2018") & arrest_date < mdy("12-01-2018") ~ 2,
-    arrest_date >= mdy("12-01-2018") & arrest_date < mdy("3-01-2019") ~ 3,
-    arrest_date >= mdy("3-01-2018") & arrest_date < mdy("6-01-2019") ~ 4,
-    arrest_date >= mdy("6-01-2018") & arrest_date < mdy("9-01-2019") ~ 5,
-    arrest_date >= mdy("9-01-2018") & arrest_date < mdy("12-01-2019") ~ 6,
-    arrest_date >= mdy("12-01-2019") & arrest_date < mdy("3-01-2020") ~ 7,
-    arrest_date >= mdy("3-01-2018") & arrest_date < mdy("6-01-2020") ~ 8,
-    arrest_date >= mdy("6-01-2018") & arrest_date < mdy("9-01-2020") ~ 9,
-    arrest_date >= mdy("9-01-2020") & arrest_date < mdy("12-01-2020") ~ 10
+    arrest_date >= mdy("06-14-2017") & arrest_date < mdy("09-14-2017") ~ -4,
+    arrest_date >= mdy("09-14-2017") & arrest_date < mdy("12-14-2017") ~ -3,
+    arrest_date >= mdy("12-14-2017") & arrest_date < mdy("03-14-2018") ~ -2,
+    arrest_date >= mdy("03-14-2018") & arrest_date < mdy("06-14-2018") ~ -1,
+    arrest_date >= mdy("06-14-2018") & arrest_date < mdy("09-14-2018") ~ 0,
+    arrest_date >= mdy("09-14-2018") & arrest_date < mdy("12-14-2018") ~ 1,
+    arrest_date >= mdy("12-14-2018") & arrest_date < mdy("03-14-2019") ~ 2,
+    arrest_date >= mdy("03-14-2019") & arrest_date < mdy("06-14-2019") ~ 3,
+    arrest_date >= mdy("06-14-2019") & arrest_date < mdy("09-14-2019") ~ 4,
+    arrest_date >= mdy("09-14-2019") & arrest_date < mdy("12-14-2019") ~ 5,
+    arrest_date >= mdy("12-14-2019") & arrest_date < mdy("03-14-2020") ~ 6,
+    arrest_date >= mdy("03-14-2020") & arrest_date < mdy("06-14-2020") ~ 7,
+    arrest_date >= mdy("06-14-2020") & arrest_date < mdy("09-14-2020") ~ 8,
+    arrest_date >= mdy("09-14-2020") & arrest_date < mdy("12-14-2020") ~ 9,
+    arrest_date >= mdy("12-14-2020") & arrest_date < mdy("03-14-2021") ~ 10
   )) %>%
   mutate(
     treatment = if_else(DESIGNATED == T, 1, 0),
@@ -109,21 +111,22 @@ stopifnot(eeptools::isid(ar_oz2, c("GEOID_b", "quarter")))
 # attempt at adjusted differences for complaints
 cp_oz2 <- cp_oz %>%
   mutate(quarter = case_when(
-    cmplnt_fr_dt < mdy("3-01-2017") ~ -4,
-    cmplnt_fr_dt >= mdy("3-01-2017") & cmplnt_fr_dt < mdy("6-01-2017") ~ -3,
-    cmplnt_fr_dt >= mdy("6-01-2017") & cmplnt_fr_dt < mdy("9-01-2017") ~ -2,
-    cmplnt_fr_dt >= mdy("12-01-2017") & cmplnt_fr_dt < mdy("03-01-2018") ~ -1,
-    cmplnt_fr_dt >= mdy("03-01-2018") & cmplnt_fr_dt < mdy("06-01-2018") ~ 0,
-    cmplnt_fr_dt >= mdy("06-01-2018") & cmplnt_fr_dt < mdy("09-01-2018") ~ 1,
-    cmplnt_fr_dt >= mdy("09-01-2018") & cmplnt_fr_dt < mdy("12-01-2018") ~ 2,
-    cmplnt_fr_dt >= mdy("12-01-2018") & cmplnt_fr_dt < mdy("3-01-2019") ~ 3,
-    cmplnt_fr_dt >= mdy("3-01-2018") & cmplnt_fr_dt < mdy("6-01-2019") ~ 4,
-    cmplnt_fr_dt >= mdy("6-01-2018") & cmplnt_fr_dt < mdy("9-01-2019") ~ 5,
-    cmplnt_fr_dt >= mdy("9-01-2018") & cmplnt_fr_dt < mdy("12-01-2019") ~ 6,
-    cmplnt_fr_dt >= mdy("12-01-2019") & cmplnt_fr_dt < mdy("3-01-2020") ~ 7,
-    cmplnt_fr_dt >= mdy("3-01-2018") & cmplnt_fr_dt < mdy("6-01-2020") ~ 8,
-    cmplnt_fr_dt >= mdy("6-01-2018") & cmplnt_fr_dt < mdy("9-01-2020") ~ 9,
-    cmplnt_fr_dt >= mdy("9-01-2020") & cmplnt_fr_dt < mdy("12-01-2020") ~ 10)) %>%
+    cmplnt_fr_dt >= mdy("06-14-2017") & cmplnt_fr_dt < mdy("09-14-2017") ~ -4,
+    cmplnt_fr_dt >= mdy("09-14-2017") & cmplnt_fr_dt < mdy("12-14-2017") ~ -3,
+    cmplnt_fr_dt >= mdy("12-14-2017") & cmplnt_fr_dt < mdy("03-14-2018") ~ -2,
+    cmplnt_fr_dt >= mdy("03-14-2018") & cmplnt_fr_dt < mdy("06-14-2018") ~ -1,
+    cmplnt_fr_dt >= mdy("06-14-2018") & cmplnt_fr_dt < mdy("09-14-2018") ~ 0,
+    cmplnt_fr_dt >= mdy("09-14-2018") & cmplnt_fr_dt < mdy("12-14-2018") ~ 1,
+    cmplnt_fr_dt >= mdy("12-14-2018") & cmplnt_fr_dt < mdy("03-14-2019") ~ 2,
+    cmplnt_fr_dt >= mdy("03-14-2019") & cmplnt_fr_dt < mdy("06-14-2019") ~ 3,
+    cmplnt_fr_dt >= mdy("06-14-2019") & cmplnt_fr_dt < mdy("09-14-2019") ~ 4,
+    cmplnt_fr_dt >= mdy("09-14-2019") & cmplnt_fr_dt < mdy("12-14-2019") ~ 5,
+    cmplnt_fr_dt >= mdy("12-14-2019") & cmplnt_fr_dt < mdy("03-14-2020") ~ 6,
+    cmplnt_fr_dt >= mdy("03-14-2020") & cmplnt_fr_dt < mdy("06-14-2020") ~ 7,
+    cmplnt_fr_dt >= mdy("06-14-2020") & cmplnt_fr_dt < mdy("09-14-2020") ~ 8,
+    cmplnt_fr_dt >= mdy("09-14-2020") & cmplnt_fr_dt < mdy("12-14-2020") ~ 9,
+    cmplnt_fr_dt >= mdy("12-14-2020") & cmplnt_fr_dt < mdy("03-14-2021") ~ 10
+  )) %>%
   mutate(
     treatment = if_else(DESIGNATED == T, 1, 0),
     distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)
@@ -194,8 +197,7 @@ analysis_file <- full_join(ar_oz3, cp_oz3,
   mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
   mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .))) %>%
   # make distance negative if inside the boundary
-  mutate(centroid_distance_boundary = if_else(status == "Selected", centroid_distance_boundary, -1 * centroid_distance_boundary
-  ))
+  mutate(centroid_distance_boundary = if_else(status == "Selected", centroid_distance_boundary, -1 * centroid_distance_boundary))
 
 eeptools::isid(analysis_file, "GEOID_b") %>%
   stopifnot()
@@ -208,23 +210,25 @@ analysis_file_fe <- full_join(ar_oz3, cp_oz3,
   by = c("GEOID_b", "quarter", "GEOID")
 ) %>%
   arrange(quarter) %>%
-  mutate(year = case_when(quarter < 0 ~ "year-1",
-                          quarter < 4 ~ "year0",
-                          quarter < 8 ~ "year1",
-                          TRUE ~ NA_character_)) %>% 
+  mutate(year = case_when(
+    quarter < 0 ~ "year-1",
+    quarter < 4 ~ "year0",
+    quarter < 8 ~ "year1",
+    TRUE ~ NA_character_
+  )) %>%
   pivot_wider(
     id_cols = c(GEOID_b, GEOID, quarter),
     names_from = year,
     values_from = c(starts_with("violent_ellen"), starts_with("property_ellen"))
-  ) %>% 
-  mutate(across(`violent_ellen_ar_year-1`:property_ellen_winsorize_cp_year1, ~if_else(is.na(.), 0, .))) %>%
+  ) %>%
+  mutate(across(`violent_ellen_ar_year-1`:property_ellen_winsorize_cp_year1, ~ if_else(is.na(.), 0, .))) %>%
   full_join(centroid_distances, by = "GEOID_b") %>%
   left_join(acs_oz_vars, by = "GEOID") %>%
   mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
   mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .))) %>%
-  # make distance negative if inside the boundary
-  mutate(centroid_distance_boundary = if_else(status == "Selected", -1 * centroid_distance_boundary,
-    centroid_distance_boundary
+  # make distance negative if outside the boundary
+  mutate(centroid_distance_boundary = if_else(status == "Selected", centroid_distance_boundary,
+    -1 * centroid_distance_boundary
   ))
 
 analysis_file_fe
