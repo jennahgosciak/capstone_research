@@ -84,12 +84,12 @@ acs_nyc_wide_bg %>%
 ```{r}
 # merge to acs
 acs_oz <- oz %>%
-  left_join(acs_nyc_wide, by = "GEOID")
+  full_join(acs_nyc_wide, by = "GEOID")
 
 acs_oz_bg <- acs_nyc_wide_bg %>%
   rename(GEOID_bg = GEOID) %>%
   mutate(GEOID_tract = substr(GEOID_bg, 1, 11)) %>%
-  left_join(oz, ., by = c("GEOID" = "GEOID_tract"))
+  full_join(oz, ., by = c("GEOID" = "GEOID_tract"))
 ```
 
 ```{r}

@@ -20,6 +20,22 @@ library(DescTools)
 ar_oz <- read_csv("../00_data/ar_oz.csv")
 cp_oz <- read_csv("../00_data/cp_oz.csv")
 
+centroid_distances <- st_read("../03_output/centroid_distances.geojson") %>%
+  as.data.frame() %>%
+  select(GEOID_b, centroid_distance_boundary, DESIGNATED) %>%
+  # flagging out ineligible census blocks
+  mutate(status = case_when(
+    is.na(DESIGNATED) ~ "Ineligible",
+    DESIGNATED == TRUE ~ "Selected",
+    DESIGNATED == FALSE ~ "Unselected, Eligible"
+  )) %>%
+  mutate(GEOID_b = as.numeric(GEOID_b)) %>%
+  select(-DESIGNATED)
+centroid_distances
+
+# checking for uniqueness
+eeptools::isid(centroid_distances, "GEOID_b") %>%
+  stopifnot()
 ```
 
 ```{r}
@@ -30,8 +46,11 @@ acs_varlist
 
 acs_vars <- acs_varlist$variable
 names(acs_vars) <- acs_varlist$description
-constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
-urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
+constructs <- c(
+  "population", "median_earnings", "median_household_income", "median_gross_rent",
+  "pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg",
+  "dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64"
+)
 ```
 
 ```{r}
@@ -46,27 +65,31 @@ acs_oz_vars <- acs_oz %>%
 # attempt at adjusted differences for arrests
 ar_oz2 <- ar_oz %>%
   mutate(quarter = case_when(
-    arrest_date >= mdy("06-01-2018") & arrest_date < mdy("09-01-2018") ~ 1,
-    arrest_date >= mdy("09-01-2018") & arrest_date < mdy("12-01-2018") ~ 2,
-    arrest_date >= mdy("12-01-2018") & arrest_date < mdy("3-01-2019") ~ 3,
-    arrest_date >= mdy("3-01-2018") & arrest_date < mdy("6-01-2019") ~ 4,
-    arrest_date >= mdy("6-01-2018") & arrest_date < mdy("9-01-2019") ~ 5,
-    arrest_date >= mdy("9-01-2018") & arrest_date < mdy("12-01-2019") ~ 6,
-    arrest_date >= mdy("12-01-2019") & arrest_date < mdy("3-01-2020") ~ 7,
-    arrest_date >= mdy("3-01-2018") & arrest_date < mdy("6-01-2020") ~ 8,
-    arrest_date >= mdy("6-01-2018") & arrest_date < mdy("9-01-2020") ~ 9,
-    arrest_date >= mdy("9-01-2020") & arrest_date < mdy("12-01-2020") ~ 10
+    arrest_date >= mdy("06-14-2017") & arrest_date < mdy("09-14-2017") ~ -4,
+    arrest_date >= mdy("09-14-2017") & arrest_date < mdy("12-14-2017") ~ -3,
+    arrest_date >= mdy("12-14-2017") & arrest_date < mdy("03-14-2018") ~ -2,
+    arrest_date >= mdy("03-14-2018") & arrest_date < mdy("06-14-2018") ~ -1,
+    arrest_date >= mdy("06-14-2018") & arrest_date < mdy("09-14-2018") ~ 0,
+    arrest_date >= mdy("09-14-2018") & arrest_date < mdy("12-14-2018") ~ 1,
+    arrest_date >= mdy("12-14-2018") & arrest_date < mdy("03-14-2019") ~ 2,
+    arrest_date >= mdy("03-14-2019") & arrest_date < mdy("06-14-2019") ~ 3,
+    arrest_date >= mdy("06-14-2019") & arrest_date < mdy("09-14-2019") ~ 4,
+    arrest_date >= mdy("09-14-2019") & arrest_date < mdy("12-14-2019") ~ 5,
+    arrest_date >= mdy("12-14-2019") & arrest_date < mdy("03-14-2020") ~ 6,
+    arrest_date >= mdy("03-14-2020") & arrest_date < mdy("06-14-2020") ~ 7,
+    arrest_date >= mdy("06-14-2020") & arrest_date < mdy("09-14-2020") ~ 8,
+    arrest_date >= mdy("09-14-2020") & arrest_date < mdy("12-14-2020") ~ 9,
+    arrest_date >= mdy("12-14-2020") & arrest_date < mdy("03-14-2021") ~ 10
   )) %>%
   mutate(
     treatment = if_else(DESIGNATED == T, 1, 0),
     distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)
   ) %>%
-  filter(!is.na(DESIGNATED) & buffer == 1) %>%
   # note: calculating this at the Census block level
   mutate(post = if_else(arrest_date >= mdy("04-01-2018"), 1, 0)) %>%
   group_by(
-    GEOID_b, GEOID, post, quarter, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
-    pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64, buffer
+    GEOID_b, GEOID, quarter, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
+    pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64
   ) %>%
   rename(
     violent_ellen_ar = violent_ellen,
@@ -79,36 +102,38 @@ ar_oz2 <- ar_oz %>%
     distance_boundary_ar = mean(distance_boundary_ar, na.rm = T)
   ) %>%
   mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag)) %>%
-  filter(post == 1 & !is.na(quarter))
+  filter(!is.na(quarter))
 
-stopifnot(eeptools::isid(ar_oz2, c("GEOID_b", "post", "quarter")))
+stopifnot(eeptools::isid(ar_oz2, c("GEOID_b", "quarter")))
 ```
 
 ```{r}
 # attempt at adjusted differences for complaints
 cp_oz2 <- cp_oz %>%
   mutate(quarter = case_when(
-    cmplnt_fr_dt >= mdy("06-01-2018") & cmplnt_fr_dt < mdy("09-01-2018") ~ 1,
-    cmplnt_fr_dt >= mdy("09-01-2018") & cmplnt_fr_dt < mdy("12-01-2018") ~ 2,
-    cmplnt_fr_dt >= mdy("12-01-2018") & cmplnt_fr_dt < mdy("3-01-2019") ~ 3,
-    cmplnt_fr_dt >= mdy("3-01-2018") & cmplnt_fr_dt < mdy("6-01-2019") ~ 4,
-    cmplnt_fr_dt >= mdy("6-01-2018") & cmplnt_fr_dt < mdy("9-01-2019") ~ 5,
-    cmplnt_fr_dt >= mdy("9-01-2018") & cmplnt_fr_dt < mdy("12-01-2019") ~ 6,
-    cmplnt_fr_dt >= mdy("12-01-2019") & cmplnt_fr_dt < mdy("3-01-2020") ~ 7,
-    cmplnt_fr_dt >= mdy("3-01-2018") & cmplnt_fr_dt < mdy("6-01-2020") ~ 8,
-    cmplnt_fr_dt >= mdy("6-01-2018") & cmplnt_fr_dt < mdy("9-01-2020") ~ 9,
-    cmplnt_fr_dt >= mdy("9-01-2020") & cmplnt_fr_dt < mdy("12-01-2020") ~ 10
+    cmplnt_fr_dt >= mdy("06-14-2017") & cmplnt_fr_dt < mdy("09-14-2017") ~ -4,
+    cmplnt_fr_dt >= mdy("09-14-2017") & cmplnt_fr_dt < mdy("12-14-2017") ~ -3,
+    cmplnt_fr_dt >= mdy("12-14-2017") & cmplnt_fr_dt < mdy("03-14-2018") ~ -2,
+    cmplnt_fr_dt >= mdy("03-14-2018") & cmplnt_fr_dt < mdy("06-14-2018") ~ -1,
+    cmplnt_fr_dt >= mdy("06-14-2018") & cmplnt_fr_dt < mdy("09-14-2018") ~ 0,
+    cmplnt_fr_dt >= mdy("09-14-2018") & cmplnt_fr_dt < mdy("12-14-2018") ~ 1,
+    cmplnt_fr_dt >= mdy("12-14-2018") & cmplnt_fr_dt < mdy("03-14-2019") ~ 2,
+    cmplnt_fr_dt >= mdy("03-14-2019") & cmplnt_fr_dt < mdy("06-14-2019") ~ 3,
+    cmplnt_fr_dt >= mdy("06-14-2019") & cmplnt_fr_dt < mdy("09-14-2019") ~ 4,
+    cmplnt_fr_dt >= mdy("09-14-2019") & cmplnt_fr_dt < mdy("12-14-2019") ~ 5,
+    cmplnt_fr_dt >= mdy("12-14-2019") & cmplnt_fr_dt < mdy("03-14-2020") ~ 6,
+    cmplnt_fr_dt >= mdy("03-14-2020") & cmplnt_fr_dt < mdy("06-14-2020") ~ 7,
+    cmplnt_fr_dt >= mdy("06-14-2020") & cmplnt_fr_dt < mdy("09-14-2020") ~ 8,
+    cmplnt_fr_dt >= mdy("09-14-2020") & cmplnt_fr_dt < mdy("12-14-2020") ~ 9,
+    cmplnt_fr_dt >= mdy("12-14-2020") & cmplnt_fr_dt < mdy("03-14-2021") ~ 10
   )) %>%
   mutate(
     treatment = if_else(DESIGNATED == T, 1, 0),
     distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)
   ) %>%
-  filter(!is.na(DESIGNATED) & buffer == 1) %>%
-  # note: calculating this at the Census block level
-  mutate(post = if_else(cmplnt_fr_dt >= mdy("04-01-2018"), 1, 0)) %>%
   group_by(
-    GEOID_b, GEOID, post, quarter, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
-    pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64, buffer
+    GEOID_b, GEOID, quarter, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
+    pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64
   ) %>%
   rename(
     violent_ellen_cp = violent_ellen,
@@ -121,9 +146,9 @@ cp_oz2 <- cp_oz %>%
     distance_boundary_cp = mean(distance_boundary_cp, na.rm = T)
   ) %>%
   mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag)) %>%
-  filter(post == 1 & !is.na(quarter))
+  filter(!is.na(quarter))
 
-stopifnot(eeptools::isid(cp_oz2, c("GEOID_b", "post", "quarter")))
+stopifnot(eeptools::isid(cp_oz2, c("GEOID_b", "quarter")))
 
 # when write methods section, cite paper
 ```
@@ -139,60 +164,76 @@ ar_oz2 <- ar_oz2 %>%
 cp_oz2 <- cp_oz2 %>%
   mutate(
     violent_ellen_winsorize_cp = Winsorize(violent_ellen_cp, probs = c(0.01, 0.99)),
-    property_ellen_winsorize_cp = Winsorize(property_ellen_cp, probs = c(0.01, 0.99)))
+    property_ellen_winsorize_cp = Winsorize(property_ellen_cp, probs = c(0.01, 0.99))
+  )
 ```
 
 
 ```{r}
 # Create one file
-ar_oz3 <- ar_oz2 %>% ungroup()
-cp_oz3 <- cp_oz2 %>% ungroup()
+ar_oz3 <- ar_oz2 %>%
+  ungroup() %>%
+  select(GEOID_b, GEOID, quarter, starts_with("violent_ellen"), starts_with("property_ellen"))
 
-analysis_file <- left_join(cp_oz3, ar_oz3 %>%
-  select(
-    GEOID_b, quarter, violent_ellen_ar, violent_ellen_winsorize_ar,
-    property_ellen_ar, property_ellen_winsorize_ar,
-    distance_boundary_ar
-  ),
-by = c("GEOID_b" = "GEOID_b", "quarter" = "quarter")
-) %>%
-  arrange(quarter) %>%
-  pivot_wider(
-    names_from = quarter,
-    values_from = c(
-      violent_ellen_ar, violent_ellen_winsorize_ar, property_ellen_ar,
-      property_ellen_winsorize_ar, distance_boundary_ar,
-      violent_ellen_cp, violent_ellen_winsorize_cp, property_ellen_cp,
-      property_ellen_winsorize_cp, distance_boundary_cp
-    )
-  ) %>%
-  mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
-  mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
-
-# WITH remerging ACS but keeping original as well (so covaraite.x and covariate.y)
-analysis_file2 <- full_join(cp_oz3, ar_oz3 %>%
-  select(
-    GEOID_b, quarter, violent_ellen_ar, violent_ellen_winsorize_ar,
-    property_ellen_ar, property_ellen_winsorize_ar,
-    distance_boundary_ar
-  ),
-by = c("GEOID_b", "quarter")
-) %>%
-  arrange(quarter) %>%
-  pivot_wider(
-    names_from = quarter,
-    values_from = c(
-      violent_ellen_ar, violent_ellen_winsorize_ar, property_ellen_ar,
-      property_ellen_winsorize_ar, distance_boundary_ar,
-      violent_ellen_cp, violent_ellen_winsorize_cp, property_ellen_cp,
-      property_ellen_winsorize_cp, distance_boundary_cp
-    )
-  ) %>%
-  left_join(acs_oz_vars, by = "GEOID") %>%
-  # Not sure if I did that right? Or in the right place? Doesn't seem to do anything?
-  mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
-  mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .)))
+cp_oz3 <- cp_oz2 %>%
+  ungroup() %>%
+  select(GEOID_b, GEOID, quarter, starts_with("violent_ellen"), starts_with("property_ellen"))
+cp_oz3
 ```
+```{r}
+# WITH remerging ACS but keeping original as well (so covaraite.x and covariate.y)
+analysis_file <- full_join(ar_oz3, cp_oz3,
+  by = c("GEOID_b", "quarter", "GEOID")
+) %>%
+  arrange(quarter) %>%
+  mutate(quarter = str_replace(as.character(quarter), "\\-", "min")) %>%
+  pivot_wider(
+    id_cols = c(GEOID_b, GEOID),
+    names_from = quarter,
+    values_from = c(starts_with("violent_ellen"), starts_with("property_ellen"))
+  ) %>%
+  full_join(centroid_distances, by = "GEOID_b") %>%
+  left_join(acs_oz_vars, by = "GEOID") %>%
+  mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
+  mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .))) %>%
+  # make distance negative if inside the boundary
+  mutate(centroid_distance_boundary = if_else(status == "Selected", centroid_distance_boundary, -1 * centroid_distance_boundary))
+
+eeptools::isid(analysis_file, "GEOID_b") %>%
+  stopifnot()
+
+analysis_file
+```
+```{r}
+# file for running with fixed effects
+analysis_file_fe <- full_join(ar_oz3, cp_oz3,
+  by = c("GEOID_b", "quarter", "GEOID")
+) %>%
+  arrange(quarter) %>%
+  mutate(year = case_when(
+    quarter < 0 ~ "year-1",
+    quarter < 4 ~ "year0",
+    quarter < 8 ~ "year1",
+    TRUE ~ NA_character_
+  )) %>%
+  pivot_wider(
+    id_cols = c(GEOID_b, GEOID, quarter),
+    names_from = year,
+    values_from = c(starts_with("violent_ellen"), starts_with("property_ellen"))
+  ) %>%
+  mutate(across(`violent_ellen_ar_year-1`:property_ellen_winsorize_cp_year1, ~ if_else(is.na(.), 0, .))) %>%
+  full_join(centroid_distances, by = "GEOID_b") %>%
+  left_join(acs_oz_vars, by = "GEOID") %>%
+  mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
+  mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .))) %>%
+  # make distance negative if outside the boundary
+  mutate(centroid_distance_boundary = if_else(status == "Selected", centroid_distance_boundary,
+    -1 * centroid_distance_boundary
+  ))
+
+analysis_file_fe
+```
+
 
 ```{r}
 # check missingness
@@ -211,9 +252,13 @@ acs_oz_vars %>%
 
 ```{r}
 # write to csv
+analysis_file
 
 analysis_file %>%
   write_csv("../00_data/analysis_file.csv")
+
+analysis_file_fe %>%
+  write_csv("../00_data/analysis_file_fe.csv")
 ```
 
 
