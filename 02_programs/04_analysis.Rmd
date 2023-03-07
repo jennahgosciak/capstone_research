@@ -41,7 +41,22 @@ analysis_file <- read_csv("../00_data/analysis_file.csv") %>%
     GEOID_b %in% centroid_distance_pairs$dist_pair ~ 0,
     TRUE ~ NA_real_
   ))
+```
 
+```{r}
+analysis_file %>% 
+  mutate(missing_SE = is.na(SE_Flag),
+           missing_pop = is.na(population)) %>% 
+  filter(abs(centroid_distance_boundary) <= 200 & status == "Ineligible") %>% 
+  group_by(missing_pop) %>% 
+  summarize(n = n())
+
+analysis_file %>% 
+  filter(is.na(population)) %>% 
+  select(vacancyrate, "pctunder18", population, GEOID)
+```
+
+```{r}
 analysis_file_fe <- read_csv("../00_data/analysis_file_fe.csv") %>%
   mutate(
     quarter1 = if_else(quarter %in% c(-4, 0, 4), 1, 0),
@@ -275,10 +290,19 @@ run_model_set_fe <- function(outcome_data, running_var, outcomes, p, covs) {
 
 ```{r}
 baseline_data <- analysis_file %>%
-  select(GEOID_b, constructs, centroid_distance_boundary, treatment, treatment2) %>%
+  select(GEOID_b, constructs, centroid_distance_boundary, status, treatment, treatment2) %>%
   distinct()
 
+stopifnot(eeptools::isid(analysis_file, "GEOID_b"))
 stopifnot(eeptools::isid(baseline_data, "GEOID_b"))
+
+analysis_file %>% 
+  mutate(missing_pop = !is.na(population)) %>% 
+  filter(abs(centroid_distance_boundary) <= 200 & !is.na(population)) %>% 
+  group_by(treatment, status, missing_pop) %>% 
+  summarize(n = n()) %>% 
+  ungroup() %>% 
+  summarize(total =sum(n))
 ```
 
 ```{r}
@@ -297,6 +321,14 @@ n_vals <- bequiv %>%
   summarize(N = formatC(max(N), big.mark = ",")) %>%
   mutate(var = "Total") %>%
   pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "N")
+```
+
+```{r}
+bequiv %>%
+  select(var, N, bandwidth) %>%
+  group_by(bandwidth) %>% 
+  mutate(N_new = formatC(max(N), big.mark = ",")) %>% 
+  arrange(bandwidth, desc(N))
 
 bequiv %>%
   mutate(difference = str_c(difference, "\n(", se, ")")) %>%
@@ -395,94 +427,12 @@ output %>%
   write_csv(str_glue("../03_output/results_form_{Sys.Date()}{file_suffix}.csv"))
 ```
 
-## PLOTS
-```{r}
-generate_rd_plot <- function(df, outcome_var, outcome_lab, p, covariates, type, time, ...) {
-  df_filt <- df %>%
-    rename(outcome = outcome_var) %>%
-    filter(outcome < 10 & abs(centroid_distance_boundary) < 2000)
-
-  outcome_col <- df_filt %>%
-    magrittr::extract2("outcome")
-
-  running_var <- df_filt %>%
-    magrittr::extract2("centroid_distance_boundary")
-
-  covs <- df_filt %>%
-    select(covariates)
-  # creating plots
-  rdplot(outcome_col, running_var,
-    p = p, y.label = str_glue("Average number of {type} per {time} (p={p})"),
-    x.label = "distance", title = outcome_lab,
-    covs = covs, ...
-  )
-
-  ggsave(str_glue("../03_output/rdplot_{outcome_var}_{p}.png"))
-}
-```
-
-```{r}
-walk(c(1, 4), ~ generate_rd_plot(analysis_file, "violent_ellen_winsorize_ar_0", "Violent crime arrests, quarter 0", ., constructs))
-walk(c(1, 4), ~ generate_rd_plot(analysis_file, "violent_ellen_winsorize_cp_0", "Violent crime complaints, quarter 0", ., constructs))
-walk(c(1, 4), ~ generate_rd_plot(analysis_file, "property_ellen_winsorize_ar_0", "Violent crime arrests, quarter 0", ., constructs))
-walk(c(1, 4), ~ generate_rd_plot(analysis_file, "property_ellen_winsorize_cp_0", "Violent crime complaints, quarter 0", ., constructs))
-
-walk(c(1, 4), ~ generate_rd_plot(analysis_file, "violent_ellen_winsorize_ar_7", "Violent crime arrests, quarter 7", ., constructs))
-walk(c(1, 4), ~ generate_rd_plot(analysis_file, "violent_ellen_winsorize_cp_7", "Violent crime complaints, quarter 7", ., constructs))
-walk(c(1, 4), ~ generate_rd_plot(analysis_file, "property_ellen_winsorize_ar_7", "Violent crime arrests, quarter 7", ., constructs))
-walk(c(1, 4), ~ generate_rd_plot(analysis_file, "property_ellen_winsorize_cp_7", "Violent crime complaints, quarter 7", ., constructs))
-```
-
-```{r}
-walk(c(1, 4), ~ generate_rd_plot(analysis_file_fe, "violent_ellen_winsorize_ar_year0", "Violent crime arrests, year 0", ., c(constructs, str_c("quarter", 1:3)), "arrests", "year"))
-walk(c(1, 4), ~ generate_rd_plot(analysis_file_fe, "violent_ellen_winsorize_cp_year0", "Violent crime complaints, year 0", ., c(constructs, str_c("quarter", 1:3)), "complaints", "year"))
-walk(c(1, 4), ~ generate_rd_plot(analysis_file_fe, "property_ellen_winsorize_ar_year0", "Property crime arrests, year 0", ., c(constructs, str_c("quarter", 1:3)), "arrests", "year"))
-walk(c(1, 4), ~ generate_rd_plot(analysis_file_fe, "property_ellen_winsorize_cp_year0", "Property crime complaints, year 0", ., c(constructs, str_c("quarter", 1:3)), "complaints", "year"))
-```
-
-```{r}
-plot_data <- analysis_file %>%
-  select(c(GEOID_b, status, centroid_distance_boundary, matches("violent_ellen_winsorize"))) %>%
-  pivot_longer(matches("violent_ellen_winsorize")) %>%
-  separate(name, c("crime_type", "method", "winsorize", "ar_cp", "quarter")) %>%
-  filter(ar_cp == "ar") %>%
-  mutate(treatment = if_else(status == "Selected", 1, 0))
-
-plot_data %>%
-  filter(abs(centroid_distance_boundary) < 193) %>%
-  ggplot(aes(x = centroid_distance_boundary, y = value, group = status, color = status)) +
-  geom_point(alpha = 0.25) +
-  # geom_smooth(method="lm") +
-  theme_classic() +
-  facet_wrap(~quarter)
-```
-```{r}
-points <- analysis_file %>%
-  filter(abs(centroid_distance_boundary) < 193) %>%
-  mutate(centroid_distance_boundary = round(centroid_distance_boundary, 1)) %>%
-  group_by(centroid_distance_boundary) %>%
-  summarize(across(matches("violent_ellen_winsorize"), ~ mean(., na.rm = T))) %>%
-  pivot_longer(-centroid_distance_boundary)
-
-points
-```
-
-```{r}
-plot_data %>%
-  filter(abs(centroid_distance_boundary) < 193) %>%
-  ggplot(aes(x = centroid_distance_boundary, y = value, color = status)) +
-  geom_point(data = points, aes(x = centroid_distance_boundary, y = value), alpha = .2, inherit.aes = F) +
-  geom_smooth(method = "lm") +
-  theme_classic() +
-  facet_wrap(~quarter)
-```
-
 ## FIXED EFFECTS
 ```{r}
 # define data and outcomes
 outcomes_ar <- map(
   c("violent_ellen_winsorize_ar_", "property_ellen_winsorize_ar_"),
-  ~ str_c(., c("year0", "year1"))
+  ~ str_c(., c("year-1", "year0", "year1"))
 ) %>%
   unlist()
 
@@ -490,7 +440,7 @@ running_var <- analysis_file_fe[["centroid_distance_boundary"]]
 outcome_data_ar <- analysis_file_fe[, outcomes_ar]
 covariates <- analysis_file_fe[, c(constructs, str_c("quarter", 1:3))]
 
-outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"), ~ str_c(., c("year0", "year1"))) %>%
+outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"), ~ str_c(., c("year-1", "year0", "year1"))) %>%
   unlist()
 
 outcome_data_cp <- analysis_file_fe[, outcomes_cp]
@@ -539,6 +489,78 @@ output_fe %>%
   select(c("year", "order", "covs"), matches("Conventional"), matches("Bias"), matches("Robust")) %>%
   select(c("year", "order", "covs"), matches("property"), matches("violent")) %>%
   write_csv(str_glue("../03_output/results_form__fe_{Sys.Date()}{file_suffix}.csv"))
+```
+
+## PLOTS
+```{r}
+generate_rd_plot <- function(df, outcome_var, outcome_lab, p, covariates, type, time, h, ...) {
+  df_filt <- df %>%
+    rename(outcome = outcome_var) %>%
+    filter(abs(centroid_distance_boundary) <= h)
+
+  outcome_col <- df_filt %>%
+    magrittr::extract2("outcome")
+
+  running_var <- df_filt %>%
+    magrittr::extract2("centroid_distance_boundary")
+
+  covs <- df_filt[, covariates]
+  
+  # creating plots
+  rdplot(outcome_col, running_var,
+    p = p, y.label = str_glue("Average number of {type} per {time} (p={p})"),
+    x.label = "distance", title = outcome_lab,
+    covs = covs, y.lim = c(0, 1), h=h, ...
+  )
+
+  ggsave(str_glue("../03_output/rdplot_{outcome_var}_{p}.png"))
+}
+```
+
+```{r}
+walk2(c(1, 4), c(500, 900), ~ generate_rd_plot(analysis_file_fe, "violent_ellen_winsorize_ar_year0", "Violent crime arrests, year 0", .x, c(constructs, str_c("quarter", 1:3)), "arrests", "quarter", h = .y))
+
+# walk(c(1, 4), ~ generate_rd_plot(analysis_file_fe, "violent_ellen_winsorize_cp_year0", "Violent crime complaints, year 0", ., c(constructs, str_c("quarter", 1:3)), "complaints", "year"))
+walk2(c(1, 4), c(400, 900), ~ generate_rd_plot(analysis_file_fe, "property_ellen_winsorize_ar_year0", "Property crime arrests, year 0", .x, c(constructs, str_c("quarter", 1:3)), "arrests", "quarter", h=.y))
+
+# walk(c(1, 4), ~ generate_rd_plot(analysis_file_fe, "property_ellen_winsorize_cp_year0", "Property crime complaints, year 0", ., c(constructs, str_c("quarter", 1:3)), "complaints", "year"))
+```
+
+```{r}
+plot_data <- analysis_file %>%
+  select(c(GEOID_b, status, centroid_distance_boundary, matches("violent_ellen_winsorize"))) %>%
+  pivot_longer(matches("violent_ellen_winsorize")) %>%
+  separate(name, c("crime_type", "method", "winsorize", "ar_cp", "quarter")) %>%
+  filter(ar_cp == "ar") %>%
+  mutate(treatment = if_else(status == "Selected", 1, 0))
+
+plot_data %>%
+  filter(abs(centroid_distance_boundary) < 193) %>%
+  ggplot(aes(x = centroid_distance_boundary, y = value, group = status, color = status)) +
+  geom_point(alpha = 0.25) +
+  # geom_smooth(method="lm") +
+  theme_classic() +
+  facet_wrap(~quarter)
+```
+```{r}
+points <- analysis_file %>%
+  filter(abs(centroid_distance_boundary) < 193) %>%
+  mutate(centroid_distance_boundary = round(centroid_distance_boundary, 1)) %>%
+  group_by(centroid_distance_boundary) %>%
+  summarize(across(matches("violent_ellen_winsorize"), ~ mean(., na.rm = T))) %>%
+  pivot_longer(-centroid_distance_boundary)
+
+points
+```
+
+```{r}
+plot_data %>%
+  filter(abs(centroid_distance_boundary) < 193) %>%
+  ggplot(aes(x = centroid_distance_boundary, y = value, color = status)) +
+  geom_point(data = points, aes(x = centroid_distance_boundary, y = value), alpha = .2, inherit.aes = F) +
+  geom_smooth(method = "lm") +
+  theme_classic() +
+  facet_wrap(~quarter)
 ```
 
 
