@@ -62,6 +62,10 @@ acs_oz <- read_csv("../00_data/acs_oz.csv")
 
 acs_oz_vars <- acs_oz %>%
   select(GEOID, constructs, urbanvars)
+
+acs_oz %>% 
+  group_by(DESIGNATED) %>% 
+  summarize(n = n())
 ```
 
 ```{r}

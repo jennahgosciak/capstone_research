@@ -43,13 +43,13 @@ names(acs_vars) <- acs_varlist$description
 acs_nyc <- get_acs(
   geography = "tract", variables = acs_vars,
   state = "NY", county = c("047", "085", "081", "061", "005"),
-  year = 2020
+  year = 2017
 )
 
 acs_nyc_bg <- get_acs(
   geography = "block group", variables = acs_vars,
   state = "NY", county = c("047", "085", "081", "061", "005"),
-  year = 2020
+  year = 2017
 )
 
 generate_acs_vars <- function(df) {
@@ -125,6 +125,11 @@ acs_oz %>%
   pivot_wider(id_cols = "name", names_from = "designated_desc", values_from = "value")
 ```
 
+```{r}
+acs_oz %>% 
+  filter(GEOID == 36005001900	) %>% 
+  as.data.frame()
+```
 
 ```{r}
 acs_oz %>%
