@@ -51,6 +51,9 @@ constructs <- c(
   "pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg",
   "dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64"
 )
+
+urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
+
 ```
 
 ```{r}
