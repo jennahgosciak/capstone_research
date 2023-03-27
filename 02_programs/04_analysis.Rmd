@@ -250,6 +250,50 @@ run_model_set <- function(outcome_data, running_var, outcomes, p, covs) {
     )))
 }
 
+run_model_set_cluster <- function(outcome_data, running_var, outcomes, p, covs, cluster) {
+  # vector to drop missing covariates
+  keep_cov <- covs %>%
+    is.na() %>%
+    rowSums() %>%
+    magrittr::equals(0)
+
+  # drop missing covariate values
+  outcome_data_cov <- outcome_data[keep_cov, ]
+  running_var_cov <- running_var[keep_cov]
+  covs <- covs[keep_cov, ]
+
+  return(map2_dfr(
+    outcome_data, outcomes,
+    ~ tidy.rdrobust(.x, running_var, .y, p = p, cluster = cluster)
+  ) %>%
+    bind_rows(map2_dfr(
+      outcome_data_cov, outcomes,
+      ~ tidy.rdrobust(.x, running_var_cov, .y, p = p, covs = covs, cluster = cluster)
+    )))
+}
+
+theory_run_model_set <- function(outcome_data, running_var, outcomes, p, covs, bandwidth) {
+  # vector to drop missing covariates
+  keep_cov <- covs %>%
+    is.na() %>%
+    rowSums() %>%
+    magrittr::equals(0)
+
+  # drop missing covariate values
+  outcome_data_cov <- outcome_data[keep_cov, ]
+  running_var_cov <- running_var[keep_cov]
+  covs <- covs[keep_cov, ]
+
+  return(map2_dfr(
+    outcome_data, outcomes,
+    ~ tidy.rdrobust(.x, running_var, .y, p = p, h = bandwidth, b = bandwidth)
+  ) %>%
+    bind_rows(map2_dfr(
+      outcome_data_cov, outcomes,
+      ~ tidy.rdrobust(.x, running_var_cov, .y, p = p, covs = covs, h = bandwidth, b = bandwidth)
+    )))
+}
+
 run_model_set_fe <- function(outcome_data, running_var, outcomes, p, covs) {
   # vector to drop missing covariates
   keep_cov <- covs %>%
@@ -269,7 +313,6 @@ run_model_set_fe <- function(outcome_data, running_var, outcomes, p, covs) {
   ))
 }
 ```
-
 
 ## BASELINE EQUIVALENCE
 
@@ -305,6 +348,7 @@ bequiv %>%
   bind_rows(n_vals) %>%
   write_csv(str_glue("../03_output/baseline_form_lm {Sys.Date()}{file_suffix}.csv"))
 ```
+
 ```{r}
 # balance test data
 bequiv <- map_dfr(
@@ -393,6 +437,28 @@ output %>%
   select(c("quarter", "order", "covs"), matches("Conventional"), matches("Bias"), matches("Robust")) %>%
   select(c("quarter", "order", "covs"), matches("property"), matches("violent")) %>%
   write_csv(str_glue("../03_output/results_form_{Sys.Date()}{file_suffix}.csv"))
+```
+
+## THEORY-DRIVEN BANDWIDTHS
+
+```{r}
+
+bandwidththeory <- map_dfr(
+    cross2(
+    outcomes_ar,
+    seq(300, 600, 100),
+  ),
+  ~ theory_run_model_set(outcome_data_ar, running_var, outcomes = .[[1]], p = 1, covariates, bandwidth = .[[2]])
+)
+
+bandwidththeory2 <- map_dfr(
+    cross3(
+    outcomes_ar, c(1, 4),
+    seq(300, 600, 100),
+  ),
+  ~ theory_run_model_set(outcome_data_ar, running_var, outcomes = .[[1]], p = .[[2]], covariates, bandwidth = .[[3]])
+)
+    
 ```
 
 ## PLOTS
