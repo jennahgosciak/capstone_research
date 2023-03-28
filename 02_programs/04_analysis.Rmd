@@ -475,7 +475,7 @@ output %>%
 
 ```{r}
 
-bandwidththeory <- map_dfr(
+bandwidththeory_lin <- map_dfr(
     cross2(
     outcomes_ar,
     seq(300, 600, 100),
@@ -483,7 +483,7 @@ bandwidththeory <- map_dfr(
   ~ theory_run_model_set(outcome_data_ar, running_var, outcomes = .[[1]], p = 1, covariates, bandwidth = .[[2]])
 )
 
-bandwidththeory2 <- map_dfr(
+bandwidththeory_lin_poly <- map_dfr(
     cross3(
     outcomes_ar, c(1, 4),
     seq(300, 600, 100),
