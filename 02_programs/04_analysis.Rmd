@@ -120,6 +120,7 @@ tidy.rdrobust <- function(outcome, x, outcome_name, p = 1, covs = NULL, ...) {
     object <- rdrobust(outcome, x,
       c = 0, covs = covs,
       masspoints = "adjust", p = p,
+      ...
     )
 
     covariate_lab <- "covariates"
@@ -127,6 +128,7 @@ tidy.rdrobust <- function(outcome, x, outcome_name, p = 1, covs = NULL, ...) {
     object <- rdrobust(outcome, x,
       c = 0,
       masspoints = "adjust", p = p,
+      ...
     )
 
     covariate_lab <- "no covariates"
