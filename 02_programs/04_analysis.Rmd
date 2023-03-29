@@ -120,6 +120,7 @@ tidy.rdrobust <- function(outcome, x, outcome_name, p = 1, c = 0, covs = NULL, .
     object <- rdrobust(outcome, x,
       c = c, covs = covs,
       masspoints = "adjust", p = p,
+      ...
     )
 
     covariate_lab <- "covariates"
@@ -127,6 +128,7 @@ tidy.rdrobust <- function(outcome, x, outcome_name, p = 1, c = 0, covs = NULL, .
     object <- rdrobust(outcome, x,
       c = c,
       masspoints = "adjust", p = p,
+      ...
     )
 
     covariate_lab <- "no covariates"
@@ -391,6 +393,7 @@ bequiv <- map_dfr(
   ~ run_baseline_checks(baseline_data %>%
     select(-treatment, treatment = treatment2), outcome = .[[1]], bandwidth = .[[2]])
 )
+bequiv
 
 n_vals <- bequiv %>%
   select(var, N, bandwidth) %>%
@@ -428,22 +431,22 @@ outcome_data_cp <- analysis_file[, outcomes_cp]
 
 ```{r}
 output <- map_dfr(
-  c(-1000, -750, -500, -250),
-  ~ run_model_set(outcome_data_ar, running_var, outcomes_ar, p = 4, c = ., covariates)
+  c(1, 4),
+  ~ run_model_set(outcome_data_ar, running_var, outcomes_ar, p = ., covariates)
 ) %>%
   bind_rows(map_dfr(
-     c(-1000, -750, -500, -250),
-    ~ run_model_set(outcome_data_cp, running_var, outcomes_cp, p = 4, c = ., covariates)
+    c(1, 4),
+    ~ run_model_set(outcome_data_cp, running_var, outcomes_cp, p = ., covariates)
   ))
 
 output <- output %>%
   separate(outcome, c("crime_type", "measurement", "winsorize", "arrest_or_complaint", "quarter")) %>%
   select(-c(measurement)) %>%
-  select(crime_type, arrest_or_complaint, winsorize, term, order, covs, quarter, cutoff, everything()) %>%
+  select(crime_type, arrest_or_complaint, winsorize, term, order, covs, quarter, everything()) %>%
   arrange(crime_type, arrest_or_complaint, term, order, covs, quarter)
 
 output %>%
-  write_csv(str_glue("../03_output/placebo_{Sys.Date()}{file_suffix}.csv"))
+  write_csv(str_glue("../03_output/results_{Sys.Date()}{file_suffix}.csv"))
 
 output
 output %>%
@@ -463,19 +466,17 @@ output %>%
     coef_form = str_c(estimate_form, "\n(", round(std.error, 2), ")")
   ) %>%
   pivot_wider(
-    id_cols = c("quarter", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint", "cutoff"),
+    id_cols = c("quarter", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint"),
     values_from = "coef_form"
   ) %>%
-  select(c("quarter", "order", "covs"), matches("Robust")) %>%
-  select(c("quarter", "order", "covs"), ends_with("250"), ends_with("500"), ends_with("750"), ends_with("1000")) %>%
+  select(c("quarter", "order", "covs"), matches("Conventional"), matches("Bias"), matches("Robust")) %>%
   select(c("quarter", "order", "covs"), matches("property"), matches("violent")) %>%
-  write_csv(str_glue("../03_output/placebo_form_{Sys.Date()}{file_suffix}.csv"))
+  write_csv(str_glue("../03_output/results_{Sys.Date()}{file_suffix}.csv"))
 ```
 
 ## THEORY-DRIVEN BANDWIDTHS
 
 ```{r}
-
 bandwidththeory <- map_dfr(
     cross2(
     outcomes_ar,
@@ -491,7 +492,8 @@ bandwidththeory2 <- map_dfr(
   ),
   ~ theory_run_model_set(outcome_data_ar, running_var, outcomes = .[[1]], p = .[[2]], covariates, bandwidth = .[[3]])
 )
-    
+
+bandwidththeory 
 ```
 
 ## FIXED EFFECTS
@@ -557,25 +559,27 @@ output_fe %>%
   select(c("year", "order", "covs"), matches("property"), matches("violent")) %>%
   write_csv(str_glue("../03_output/results_form__fe_{Sys.Date()}{file_suffix}.csv"))
 ```
+
 ## PLACEBO TESTS GEOGRAPHIC
+
 ```{r}
 output <- map_dfr(
-  c(1, 4),
-  ~ run_model_set(outcome_data_ar, running_var, outcomes_ar, p = ., covariates)
+  c(-1000, -600, -200, 200),
+  ~ run_model_set(outcome_data_ar, running_var, outcomes_ar, p = 4, c = ., covariates)
 ) %>%
   bind_rows(map_dfr(
-    c(1, 4),
-    ~ run_model_set(outcome_data_cp, running_var, outcomes_cp, p = ., covariates)
+     c(-1000, -600, -200, 200),
+    ~ run_model_set(outcome_data_cp, running_var, outcomes_cp, p = 4, c = ., covariates)
   ))
 
 output <- output %>%
   separate(outcome, c("crime_type", "measurement", "winsorize", "arrest_or_complaint", "quarter")) %>%
   select(-c(measurement)) %>%
-  select(crime_type, arrest_or_complaint, winsorize, term, order, covs, quarter, everything()) %>%
+  select(crime_type, arrest_or_complaint, winsorize, term, order, covs, quarter, cutoff, everything()) %>%
   arrange(crime_type, arrest_or_complaint, term, order, covs, quarter)
 
 output %>%
-  write_csv(str_glue("../03_output/results_{Sys.Date()}{file_suffix}.csv"))
+  write_csv(str_glue("../03_output/placebo_{Sys.Date()}{file_suffix}.csv"))
 
 output
 output %>%
@@ -595,15 +599,17 @@ output %>%
     coef_form = str_c(estimate_form, "\n(", round(std.error, 2), ")")
   ) %>%
   pivot_wider(
-    id_cols = c("quarter", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint"),
+    id_cols = c("quarter", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint", "cutoff"),
     values_from = "coef_form"
   ) %>%
-  select(c("quarter", "order", "covs"), matches("Conventional"), matches("Bias"), matches("Robust")) %>%
+  select(c("quarter", "order", "covs"), matches("Robust")) %>%
+  select(c("quarter", "order", "covs"), ends_with("250"), ends_with("500"), ends_with("750"), ends_with("1000")) %>%
   select(c("quarter", "order", "covs"), matches("property"), matches("violent")) %>%
-  write_csv(str_glue("../03_output/placebo_{Sys.Date()}{file_suffix}.csv"))
+  write_csv(str_glue("../03_output/placebo_form_{Sys.Date()}{file_suffix}.csv"))
 ```
 
 ## PLOTS
+
 ```{r}
 generate_rd_plot <- function(df, outcome_var, outcome_lab, p, covariates, type, time, h, ...) {
   df_filt <- df %>%
