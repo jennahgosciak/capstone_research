@@ -484,9 +484,9 @@ bandwidththeory_lin <- map_dfr(
     outcomes_ar,
     seq(300, 600, 100),
   ),
-
   ~ theory_run_model_set_cluster(outcome_data_ar, running_var, outcomes = .[[1]], p = 1, covariates, bandwidth = .[[2]], censustracts)
 )
+
 
 bandwidththeory_poly <- map_dfr(
     cross2(
@@ -523,7 +523,7 @@ bandwidththeory_polyform %>%
     coef_form = str_c(estimate_form, "\n(", round(std.error, 2), ")")
   ) %>%
   pivot_wider(
-    id_cols = c("quarter", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint"),
+    id_cols = c("quarter", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint", "bandwidth.h"),
     values_from = "coef_form"
   ) %>%
   select(c("quarter", "order", "covs"), matches("Conventional"), matches("Bias"), matches("Robust")) %>%
@@ -588,7 +588,7 @@ output_fe %>%
     coef_form = str_c(estimate_form, "\n(", round(std.error, 2), ")")
   ) %>%
   pivot_wider(
-    id_cols = c("year", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint"),
+    id_cols = c("year", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint",
     values_from = "coef_form"
   ) %>%
   select(c("year", "order", "covs"), matches("Conventional"), matches("Bias"), matches("Robust")) %>%
