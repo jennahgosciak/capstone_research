@@ -479,12 +479,12 @@ output %>%
 ## THEORY-DRIVEN BANDWIDTHS
 
 ```{r}
-bandwidththeory_lin <- map_dfr(
+bandwidththeory_lin_ar <- map_dfr(
     seq(300, 600, 100),
   ~ theory_run_model_set_cluster(outcome_data_ar, running_var, outcomes_ar, p = 1, covariates, bandwidth = ., censustracts)
 )
 
-bandwidththeory_lin %>% 
+bandwidththeory_lin_ar %>% 
   select(outcome, bandwidth.h, term, order, covs, everything()) %>% 
   filter(outcome == "violent_ellen_winsorize_ar_min4" & bandwidth.h == "[300,300]") %>% 
   nrow() %>% 
@@ -493,30 +493,47 @@ bandwidththeory_lin %>%
 ```
 
 ```{r}
-bandwidththeory_poly <- map_dfr(
+bandwidththeory_poly_ar <- map_dfr(
     seq(300, 600, 100),
-  ~ theory_run_model_set_cluster(outcome_data_ar, running_var, outcomes_ar, p = 4, covariates,
-                                 bandwidth = ., censustracts)
+  ~ theory_run_model_set_cluster(outcome_data_ar, running_var, outcomes_ar, p = 4, covariates, bandwidth = ., censustracts)
+)
+```
+
+```{r}
+bandwidththeory_lin_cp <- map_dfr(
+    seq(300, 600, 100),
+  ~ theory_run_model_set_cluster(outcome_data_cp, running_var, outcomes_cp, p = 1, covariates, bandwidth = ., censustracts)
+)
+
+```
+
+```{r}
+bandwidththeory_poly_cp <- map_dfr(
+    seq(300, 600, 100),
+  ~ theory_run_model_set_cluster(outcome_data_cp, running_var, outcomes_cp, p = 4, covariates, bandwidth = ., censustracts)
 )
 ```
 
 ```{r}
 #Formatting
-bandwidththeory_polyform <- bandwidththeory_poly %>%
+
+bandwidththeory_all <- bind_rows(bandwidththeory_lin_ar, bandwidththeory_lin_cp, bandwidththeory_poly_ar, bandwidththeory_poly_cp)
+
+bandwidththeory_all_formatted <- bandwidththeory_all %>%
   separate(outcome, c("crime_type", "measurement", "winsorize", "arrest_or_complaint", "quarter")) %>%
   select(-c(measurement)) %>%
   select(crime_type, arrest_or_complaint, winsorize, term, order, covs, quarter, everything()) %>%
   arrange(crime_type, arrest_or_complaint, term, order, covs, quarter)
 
-bandwidththeory_polyform %>%
+bandwidththeory_all_formatted %>%
   write_csv(str_glue("../03_output/results_{Sys.Date()}{file_suffix}.csv"))
 
-bandwidththeory_polyform %>%
+bandwidththeory_all_formatted %>%
   filter(winsorize == "winsorize") %>%
   mutate(nobs = rowSums(select(., c(nobs.left, nobs.right)), na.rm = T)) %>%
   distinct(nobs, covs, crime_type)
 
-bandwidththeory_polyform %>%
+bandwidththeory_all_formatted %>%
   filter(winsorize == "winsorize") %>%
   mutate(
     estimate_form = case_when(
@@ -534,6 +551,7 @@ bandwidththeory_polyform %>%
   select(c("quarter", "order", "covs", "bandwidth.h"), matches("Conventional"), matches("Bias"), matches("Robust")) %>%
   select(c("quarter", "order", "covs", "bandwidth.h"), matches("property"), matches("violent")) %>%
   write_csv(str_glue("../03_output/results_form_{Sys.Date()}{file_suffix}.csv"))
+
 ```
 
 ## FIXED EFFECTS
