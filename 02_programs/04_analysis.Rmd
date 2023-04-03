@@ -482,7 +482,11 @@ output %>%
 bandwidththeory_lin <- map_dfr(
     seq(300, 600, 100),
   ~ theory_run_model_set_cluster(outcome_data_ar, running_var, outcomes_ar, p = 1, covariates, bandwidth = ., censustracts)
-)
+) %>%
+  bind_rows(map_dfr(
+    seq(300, 600, 100),
+  ~ theory_run_model_set_cluster(outcome_data_cp, running_var, outcomes_cp, p = 1, covariates, bandwidth = ., censustracts)
+))
 
 bandwidththeory_lin %>% 
   select(outcome, bandwidth.h, term, order, covs, everything()) %>% 
@@ -497,7 +501,11 @@ bandwidththeory_poly <- map_dfr(
     seq(300, 600, 100),
   ~ theory_run_model_set_cluster(outcome_data_ar, running_var, outcomes_ar, p = 4, covariates,
                                  bandwidth = ., censustracts)
-)
+) %>%
+  bind_rows(map_dfr(
+    seq(300, 600, 100),
+  ~ theory_run_model_set_cluster(outcome_data_cp, running_var, outcomes_cp, p = 4, covariates, bandwidth = ., censustracts)
+))
 ```
 
 ```{r}
@@ -509,7 +517,7 @@ bandwidththeory_polyform <- bandwidththeory_poly %>%
   arrange(crime_type, arrest_or_complaint, term, order, covs, quarter)
 
 bandwidththeory_polyform %>%
-  write_csv(str_glue("../03_output/results_{Sys.Date()}{file_suffix}.csv"))
+  write_csv(str_glue("../03_output/results_theory_{Sys.Date()}{file_suffix}.csv"))
 
 bandwidththeory_polyform %>%
   filter(winsorize == "winsorize") %>%
@@ -528,12 +536,13 @@ bandwidththeory_polyform %>%
     coef_form = str_c(estimate_form, "\n(", round(std.error, 2), ")")
   ) %>%
   pivot_wider(
-    id_cols = c("quarter", "order", "covs", "bandwidth.h"), names_from = c("crime_type", "term", "arrest_or_complaint"),
+    id_cols = c("quarter", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint", "bandwidth.h"),
     values_from = "coef_form"
   ) %>%
-  select(c("quarter", "order", "covs", "bandwidth.h"), matches("Conventional"), matches("Bias"), matches("Robust")) %>%
-  select(c("quarter", "order", "covs", "bandwidth.h"), matches("property"), matches("violent")) %>%
-  write_csv(str_glue("../03_output/results_form_{Sys.Date()}{file_suffix}.csv"))
+  select(c("quarter", "order", "covs"), matches("Conventional"), matches("Bias"), matches("Robust")) %>%
+  select(c("quarter", "order", "covs"), matches("property"), matches("violent")) %>%
+  write_csv(str_glue("../03_output/results_form_theory_{Sys.Date()}{file_suffix}.csv"))
+    
 ```
 
 ## FIXED EFFECTS
@@ -573,7 +582,9 @@ output_fe <- output_fe %>%
 
 output_fe %>%
   write_csv(str_glue("../03_output/results_fe_{Sys.Date()}{file_suffix}.csv"))
+```
 
+```{r}
 output_fe
 output_fe %>%
   filter(winsorize == "winsorize") %>%
@@ -592,7 +603,7 @@ output_fe %>%
     coef_form = str_c(estimate_form, "\n(", round(std.error, 2), ")")
   ) %>%
   pivot_wider(
-    id_cols = c("year", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint",
+    id_cols = c("year", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint"),
     values_from = "coef_form"
   ) %>%
   select(c("year", "order", "covs"), matches("Conventional"), matches("Bias"), matches("Robust")) %>%
