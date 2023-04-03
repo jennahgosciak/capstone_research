@@ -239,6 +239,29 @@ analysis_file_fe <- full_join(ar_oz3, cp_oz3,
   ))
 
 analysis_file_fe
+
+#analysis file with geom data
+
+cb <- st_read("https://data.cityofnewyork.us/resource/twhy-dzjp.geojson?$limit=1000000") %>%
+  st_transform(2263) %>%
+  mutate(
+    county_code = case_when(
+      boro_code == 1 ~ "36061",
+      boro_code == 2 ~ "36005",
+      boro_code == 3 ~ "36047",
+      boro_code == 4 ~ "36081",
+      boro_code == 5 ~ "36085"
+    ),
+    GEOID = str_c(county_code, ct2010),
+    GEOID_b = str_c(county_code, ct2010, cb2010)
+  ) %>%
+  mutate(geometry = st_make_valid(geometry)) %>% 
+  mutate(GEOID_b = as.numeric(GEOID_b)) %>% 
+  mutate(GEOID = as.numeric(GEOID))
+
+
+analysis_file_geom <- left_join(analysis_file, cb, "GEOID_b" = "GEOID_b", "GEOID" = "GEOID")
+
 ```
 
 
@@ -266,6 +289,10 @@ analysis_file %>%
 
 analysis_file_fe %>%
   write_csv("../00_data/analysis_file_fe.csv")
+
+analysis_file_geom %>%
+  st_write("../00_data/analysis_file_geom.geojson")
+
 ```
 
 
