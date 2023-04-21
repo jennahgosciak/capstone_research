@@ -449,7 +449,7 @@ ar_oz_adj_diff <- ar_oz %>%
   # note: calculating this at the Census block level
   group_by(
     GEOID_b, arrest_month_yr, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
-    pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64, buffer
+    pct_poverty, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64, buffer
   ) %>%
   summarize(across(c(violent_ellen, property_ellen), ~ sum(., na.rm = T))) %>%
   filter(!is.na(DESIGNATED) & buffer == 1) %>%
@@ -466,7 +466,7 @@ cp_oz_adj_diff <- cp_oz %>%
   # note: calculating this at the Census block level
   group_by(
     GEOID_b, buffer, cp_month_yr, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
-    pct_poverty, minutes_commute_avg, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64
+    pct_poverty, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64
   ) %>%
   filter(!is.na(DESIGNATED) & buffer == 1) %>%
   summarize(across(c(violent_ellen, property_ellen), ~ sum(., na.rm = T))) %>%
@@ -526,13 +526,11 @@ outcomes <- c("resid_violent", "resid_property")
 create_adjusted_plots <- function(df, outcomes, labs, fname, date_var) {
   # ideal model
   lmviolent <- lm(violent_ellen ~ pct_white + pct_higher_ed + pct_rent +
-    pct_native_hc_covered + pct_poverty + minutes_commute_avg + dec_score + SE_Flag + vacancyrate + pctunder18 +
+    pct_native_hc_covered + pct_poverty + dec_score + SE_Flag + vacancyrate + pctunder18 +
     pctover64, df)
 
   lmproperty <- lm(property_ellen ~ pct_white + pct_higher_ed + pct_rent +
-    pct_native_hc_covered + pct_poverty + minutes_commute_avg + dec_score + SE_Flag + vacancyrate + pctunder18 +
-    pctover64, df)
-
+    pct_native_hc_covered + pct_poverty  + dec_score + SE_Flag + vacancyrate + pctunder18 + pctover64, df)
   modeldata <- cbind(df[rownames(lmviolent$model), ],
     "resid_violent" = lmviolent$residuals,
     "resid_property" = lmproperty$residuals
@@ -564,6 +562,7 @@ create_adjusted_plots <- function(df, outcomes, labs, fname, date_var) {
       xintercept = mdy("04-01-2018"), linetype = "dashed",
       color = "gray"
     ) +
+    ylim(-0.3, .3) +
     scale_color_manual(values = wes_palette("Darjeeling1")) +
     theme_classic() +
     labs(
@@ -595,8 +594,8 @@ acs_oz %>%
   # duplicate at the block group level
   # summary statistics of missingness
   # really only care about the ones that are close to the boundary
-  summarize(across(population:pct_poverty, mean, na.rm = T)) %>%
-  pivot_longer(cols = c(population:pct_poverty)) %>%
+  summarize(across(population:pctover64, mean, na.rm = T)) %>%
+  pivot_longer(cols = c(population:pctover64)) %>%
   mutate(
     value = round(value, 2),
     designated_desc = if_else(DESIGNATED == TRUE, "designated", "eligible")
