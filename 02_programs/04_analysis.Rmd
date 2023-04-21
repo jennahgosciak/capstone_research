@@ -410,7 +410,7 @@ run_model_set_fe_cluster <- function(outcome_data, running_var, outcomes, p, cov
   outcome_data_cov <- outcome_data[keep_cov, ]
   running_var_cov <- running_var[keep_cov]
   covs <- covs[keep_cov, ]
-  censustracts_cov <- censustracts[keep_cov]
+  censustracts_cov <- cluster[keep_cov]
 
   sum(is.na(running_var_cov))
   return(map2_dfr(
@@ -428,6 +428,8 @@ outcomes_ar <- map(
 ) %>%
   unlist()
 
+outcomes_ar <- outcomes_ar[1:2]
+
 outcome_data_ar <- analysis_file[, outcomes_ar]
 running_var <- analysis_file[["centroid_distance_boundary"]]
 covariates <- analysis_file[, constructs]
@@ -435,7 +437,9 @@ censustracts <- analysis_file[["GEOID"]]
 
 outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"), ~ str_c(., c("min4", "min3", "min1", 0, c(1:7)))) %>%
   unlist()
+outcomes_cp <- outcomes_cp[1:2]
 outcome_data_cp <- analysis_file[, outcomes_cp]
+
 ```
 
 ```{r}
@@ -578,6 +582,7 @@ outcomes_ar <- map(
   ~ str_c(., c("year-1", "year0", "year1"))
 ) %>%
   unlist()
+outcomes_ar <- outcomes_ar[1:2]
 
 running_var <- analysis_file_fe[["centroid_distance_boundary"]]
 outcome_data_ar <- analysis_file_fe[, outcomes_ar]
@@ -586,6 +591,7 @@ censustracts <- analysis_file_fe[["GEOID"]]
 
 outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"), ~ str_c(., c("year-1", "year0", "year1"))) %>%
   unlist()
+outcomes_cp <- outcomes_cp[1:2]
 
 outcome_data_cp <- analysis_file_fe[, outcomes_cp]
 ```
