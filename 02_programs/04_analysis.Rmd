@@ -163,6 +163,7 @@ tidy.rdrobust <- function(outcome, x, outcome_name, p = 1, covs = NULL, ...) {
 ```
 
 ```{r}
+##Baseline Checks
 run_baseline_checks <- function(data, outcome, bandwidth) {
   # drop missing covariate values
   data <- data %>%
@@ -244,6 +245,90 @@ run_baseline_checks_rdrobust <- function(outcome_data, running_var, outcomes, p,
     ~ tidy.rdrobust(.x, running_var, .y, p = p, h = bandwidth, b = bandwidth)
   ))
 }
+
+```
+
+## BASELINE EQUIVALENCE
+
+```{r}
+baseline_data <- analysis_file %>%
+  select(GEOID_b, constructs, centroid_distance_boundary, status, treatment, treatment2) %>%
+  distinct()
+
+stopifnot(eeptools::isid(analysis_file, "GEOID_b"))
+stopifnot(eeptools::isid(baseline_data, "GEOID_b"))
+
+analysis_file %>% 
+  mutate(missing_pop = !is.na(population)) %>% 
+  filter(abs(centroid_distance_boundary) <= 200 & !is.na(population)) %>% 
+  group_by(treatment, status, missing_pop) %>% 
+  summarize(n = n()) %>% 
+  ungroup() %>% 
+  summarize(total =sum(n))
+```
+
+```{r}
+# balance test data
+bequiv <- map_dfr(
+  cross2(
+    constructs,
+    seq(200, 1000, 200)
+  ),
+  ~ run_baseline_checks(baseline_data, outcome = .[[1]], bandwidth = .[[2]])
+)
+
+n_vals <- bequiv %>%
+  select(var, N, bandwidth) %>%
+  group_by(bandwidth) %>%
+  summarize(N = formatC(max(N), big.mark = ",")) %>%
+  mutate(var = "Total") %>%
+  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "N")
+```
+
+```{r}
+bequiv %>%
+  select(var, N, bandwidth) %>%
+  group_by(bandwidth) %>% 
+  mutate(N_new = formatC(max(N), big.mark = ",")) %>% 
+  arrange(bandwidth, desc(N))
+
+bequiv %>%
+  mutate(difference = str_c(difference, "\n(", se, ")")) %>%
+  select(var, difference, bandwidth) %>%
+  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "difference") %>%
+  bind_rows(n_vals) %>%
+  write_csv(str_glue("../03_output/baseline_form_lm {Sys.Date()}{file_suffix}.csv"))
+```
+
+```{r}
+# balance test data
+bequiv <- map_dfr(
+  cross2(
+    constructs,
+    seq(200, 1000, 200)
+  ),
+  ~ run_baseline_checks(baseline_data %>%
+    select(-treatment, treatment = treatment2), outcome = .[[1]], bandwidth = .[[2]])
+)
+
+n_vals <- bequiv %>%
+  select(var, N, bandwidth) %>%
+  group_by(bandwidth) %>%
+  summarize(N = formatC(max(N), big.mark = ",")) %>%
+  mutate(var = "Total") %>%
+  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "N")
+
+bequiv %>%
+  mutate(difference = str_c(difference, "\n(", se, ")")) %>%
+  select(var, difference, bandwidth) %>%
+  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "difference") %>%
+  bind_rows(n_vals) %>%
+  write_csv(str_glue("../03_output/baseline_form_lm_paired {Sys.Date()}{file_suffix}.csv"))
+```
+
+## RESULTS
+
+```{r}
 
 run_model_set <- function(outcome_data, running_var, outcomes, p, covs) {
   # vector to drop missing covariates
@@ -334,86 +419,6 @@ run_model_set_fe_cluster <- function(outcome_data, running_var, outcomes, p, cov
   ))
 }
 ```
-
-## BASELINE EQUIVALENCE
-
-```{r}
-baseline_data <- analysis_file %>%
-  select(GEOID_b, constructs, centroid_distance_boundary, status, treatment, treatment2) %>%
-  distinct()
-
-stopifnot(eeptools::isid(analysis_file, "GEOID_b"))
-stopifnot(eeptools::isid(baseline_data, "GEOID_b"))
-
-analysis_file %>% 
-  mutate(missing_pop = !is.na(population)) %>% 
-  filter(abs(centroid_distance_boundary) <= 200 & !is.na(population)) %>% 
-  group_by(treatment, status, missing_pop) %>% 
-  summarize(n = n()) %>% 
-  ungroup() %>% 
-  summarize(total =sum(n))
-```
-
-```{r}
-# balance test data
-bequiv <- map_dfr(
-  cross2(
-    constructs,
-    seq(200, 1000, 200)
-  ),
-  ~ run_baseline_checks(baseline_data, outcome = .[[1]], bandwidth = .[[2]])
-)
-
-n_vals <- bequiv %>%
-  select(var, N, bandwidth) %>%
-  group_by(bandwidth) %>%
-  summarize(N = formatC(max(N), big.mark = ",")) %>%
-  mutate(var = "Total") %>%
-  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "N")
-```
-
-```{r}
-bequiv %>%
-  select(var, N, bandwidth) %>%
-  group_by(bandwidth) %>% 
-  mutate(N_new = formatC(max(N), big.mark = ",")) %>% 
-  arrange(bandwidth, desc(N))
-
-bequiv %>%
-  mutate(difference = str_c(difference, "\n(", se, ")")) %>%
-  select(var, difference, bandwidth) %>%
-  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "difference") %>%
-  bind_rows(n_vals) %>%
-  write_csv(str_glue("../03_output/baseline_form_lm {Sys.Date()}{file_suffix}.csv"))
-```
-
-```{r}
-# balance test data
-bequiv <- map_dfr(
-  cross2(
-    constructs,
-    seq(200, 1000, 200)
-  ),
-  ~ run_baseline_checks(baseline_data %>%
-    select(-treatment, treatment = treatment2), outcome = .[[1]], bandwidth = .[[2]])
-)
-
-n_vals <- bequiv %>%
-  select(var, N, bandwidth) %>%
-  group_by(bandwidth) %>%
-  summarize(N = formatC(max(N), big.mark = ",")) %>%
-  mutate(var = "Total") %>%
-  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "N")
-
-bequiv %>%
-  mutate(difference = str_c(difference, "\n(", se, ")")) %>%
-  select(var, difference, bandwidth) %>%
-  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "difference") %>%
-  bind_rows(n_vals) %>%
-  write_csv(str_glue("../03_output/baseline_form_lm_paired {Sys.Date()}{file_suffix}.csv"))
-```
-
-## RESULTS
 
 ```{r}
 # define data and outcomes
