@@ -399,6 +399,25 @@ theory_run_model_set_cluster <- function(outcome_data, running_var, outcomes, p,
     )))
 }
 
+run_model_set_fe <- function(outcome_data, running_var, outcomes, p, covs) {
+  # vector to drop missing covariates
+  keep_cov <- covs %>%
+    is.na() %>%
+    rowSums() %>%
+    magrittr::equals(0)
+
+  # drop missing covariate values
+  outcome_data_cov <- outcome_data[keep_cov, ]
+  running_var_cov <- running_var[keep_cov]
+  covs <- covs[keep_cov, ]
+
+  sum(is.na(running_var_cov))
+  return(map2_dfr(
+    outcome_data_cov, outcomes,
+    ~ tidy.rdrobust(.x, running_var_cov, .y, p = p, covs = covs)
+  ))
+}
+
 run_model_set_fe_cluster <- function(outcome_data, running_var, outcomes, p, covs, cluster) {
   # vector to drop missing covariates
   keep_cov <- covs %>%
@@ -597,6 +616,27 @@ outcome_data_cp <- analysis_file_fe[, outcomes_cp]
 ```
 
 ```{r}
+output_fe <- map_dfr(
+  c(1, 4),
+  ~ run_model_set_fe(outcome_data_ar, running_var, outcomes_ar, p = ., covariates)
+) %>%
+  bind_rows(map_dfr(
+    c(1, 4),
+    ~ run_model_set_fe(outcome_data_cp, running_var, outcomes_cp, p = ., covariates)
+  ))
+
+output_fe <- output_fe %>%
+  separate(outcome, c("crime_type", "measurement", "winsorize", "arrest_or_complaint", "year")) %>%
+  select(-c(measurement)) %>%
+  select(crime_type, arrest_or_complaint, winsorize, term, order, covs, year, everything()) %>%
+  arrange(crime_type, arrest_or_complaint, term, order, covs, year)
+
+output_fe %>%
+  write_csv(str_glue("../03_output/results_fe_{Sys.Date()}{file_suffix}.csv"))
+```
+
+```{r}
+
 output_fe <- map_dfr(
   c(1, 4),
   ~ run_model_set_fe_cluster(outcome_data_ar, running_var, outcomes_ar, p = ., covariates, censustracts)
