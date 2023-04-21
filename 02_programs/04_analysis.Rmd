@@ -363,7 +363,7 @@ run_model_set_cluster <- function(outcome_data, running_var, outcomes, p, covs, 
   outcome_data_cov <- outcome_data[keep_cov, ]
   running_var_cov <- running_var[keep_cov]
   covs <- covs[keep_cov, ]
-  censustracts_cov <- censustracts[keep_cov]
+  censustracts_cov <- cluster[keep_cov]
 
   return(map2_dfr(
     outcome_data, outcomes,
@@ -386,7 +386,7 @@ theory_run_model_set_cluster <- function(outcome_data, running_var, outcomes, p,
   outcome_data_cov <- outcome_data[keep_cov, ]
   running_var_cov <- running_var[keep_cov]
   covs <- covs[keep_cov, ]
-  censustracts_cov <- censustracts[keep_cov]
+  censustracts_cov <- cluster[keep_cov]
 
   return(map2_dfr(
     outcome_data, outcomes,
