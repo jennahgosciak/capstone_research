@@ -582,6 +582,7 @@ outcomes_ar <- map(
 running_var <- analysis_file_fe[["centroid_distance_boundary"]]
 outcome_data_ar <- analysis_file_fe[, outcomes_ar]
 covariates <- analysis_file_fe[, c(constructs, str_c("quarter", 1:3))]
+censustracts <- analysis_file_fe[["GEOID"]]
 
 outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"), ~ str_c(., c("year-1", "year0", "year1"))) %>%
   unlist()
