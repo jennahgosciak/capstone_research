@@ -86,19 +86,15 @@ st_oz <- st_oz %>%
 ```{r}
 # average crime incidents by Census tract
 ar_oz %>%
-  group_by(GEOID, DESIGNATED) %>%
+  filter(arrest_date < mdy("06-14-2018") & arrest_date >= mdy("06-14-2017")) %>% 
+  group_by(GEOID, DESIGNATED, arrest_month_yr) %>%
   summarize(n = n()) %>%
   group_by(DESIGNATED) %>%
   summarize(avg = mean(n))
 
 cp_oz %>%
-  group_by(GEOID, DESIGNATED) %>%
-  summarize(n = n()) %>%
-  group_by(DESIGNATED) %>%
-  summarize(avg = mean(n))
-
-st_oz %>%
-  group_by(GEOID, DESIGNATED) %>%
+  filter(cmplnt_fr_dt < mdy("06-14-2018") & cmplnt_fr_dt >= mdy("06-14-2017")) %>% 
+  group_by(GEOID, DESIGNATED, cp_month_yr) %>%
   summarize(n = n()) %>%
   group_by(DESIGNATED) %>%
   summarize(avg = mean(n))
@@ -270,179 +266,6 @@ cp_oz %>%
 ggsave("../03_output/avg_complaints_prop.png", height = 3, width = 4.5)
 ```
 
-
-```{r}
-# crime incidents by Census tract over time in buffer region
-ar_oz %>%
-  filter(buffer == TRUE) %>%
-  mutate(DESIGNATED2 = if_else(DESIGNATED == TRUE & !is.na(DESIGNATED), TRUE, FALSE)) %>%
-  group_by(arrest_month_yr, DESIGNATED2) %>%
-  summarize(n = n()) %>%
-  ggplot() +
-  geom_line(aes(x = arrest_month_yr, y = n, color = if_else(DESIGNATED2 == TRUE,
-    "Selected", "Not selected"
-  ))) +
-  labs(
-    x = "Month/year", y = "Number of arrests",
-    title = "Number of arrests per month\nand by census tract",
-    color = "Designation Status"
-  ) +
-  theme_classic()
-
-ggsave("../03_output/avg_arrests_buffer.png", height = 3, width = 4.5)
-
-cp_oz %>%
-  filter(buffer == TRUE) %>%
-  mutate(DESIGNATED2 = if_else(DESIGNATED == TRUE & !is.na(DESIGNATED), TRUE, FALSE)) %>%
-  group_by(cp_month_yr, DESIGNATED2) %>%
-  summarize(n = n()) %>%
-  ggplot() +
-  geom_line(aes(x = cp_month_yr, y = n, color = if_else(DESIGNATED2 == TRUE,
-    "Selected", "Not selected"
-  ))) +
-  labs(
-    x = "Month/year", y = "Number of complaints",
-    title = "Number of complaints per month\nand by census tract",
-    color = "Designation Status"
-  ) +
-  theme_classic()
-
-ggsave("../03_output/avg_complaints_buffer.png", height = 3, width = 4.5)
-```
-
-```{r}
-# violent/prop crime by Census tract over time in buffer region
-ar_oz %>%
-  filter(buffer == TRUE & violent_ellen == 1) %>%
-  mutate(DESIGNATED2 = if_else(DESIGNATED == TRUE & !is.na(DESIGNATED), TRUE, FALSE)) %>%
-  group_by(arrest_month_yr, DESIGNATED2) %>%
-  summarize(n = n()) %>%
-  ggplot() +
-  geom_line(aes(x = arrest_month_yr, y = n, color = if_else(DESIGNATED2 == TRUE,
-    "Selected", "Not selected"
-  ))) +
-  labs(
-    x = "Month/year", y = "Number of arrests",
-    title = "Number of violent crime arrests per month\nand by census tract",
-    color = "Designation Status"
-  ) +
-  theme_classic()
-
-ggsave("../03_output/avg_violent_arrests_buffer.png", height = 3, width = 4.5)
-
-ar_oz %>%
-  filter(buffer == TRUE & property_ellen == 1) %>%
-  mutate(DESIGNATED2 = if_else(DESIGNATED == TRUE & !is.na(DESIGNATED), TRUE, FALSE)) %>%
-  group_by(arrest_month_yr, DESIGNATED2) %>%
-  summarize(n = n()) %>%
-  ggplot() +
-  geom_line(aes(x = arrest_month_yr, y = n, color = if_else(DESIGNATED2 == TRUE,
-    "Selected", "Not selected"
-  ))) +
-  labs(
-    x = "Month/year", y = "Number of arrests",
-    title = "Number of property crime arrests per month\nand by census tract",
-    color = "Designation Status"
-  ) +
-  theme_classic()
-
-ggsave("../03_output/avg_property_arrests_buffer.png", height = 3, width = 4.5)
-
-cp_oz %>%
-  filter(buffer == TRUE & violent_ellen == 1) %>%
-  mutate(DESIGNATED2 = if_else(DESIGNATED == TRUE & !is.na(DESIGNATED), TRUE, FALSE)) %>%
-  group_by(cp_month_yr, DESIGNATED2) %>%
-  summarize(n = n()) %>%
-  ggplot() +
-  geom_line(aes(x = cp_month_yr, y = n, color = if_else(DESIGNATED2 == TRUE,
-    "Selected", "Not selected"
-  ))) +
-  labs(
-    x = "Month/year", y = "Number of complaints",
-    title = "Number of violent crime complaints per month\nand by census tract",
-    color = "Designation Status"
-  ) +
-  theme_classic()
-
-ggsave("../03_output/avg_violent_complaints_buffer.png", height = 3, width = 4.5)
-
-cp_oz %>%
-  filter(buffer == TRUE & property_ellen == 1) %>%
-  mutate(DESIGNATED2 = if_else(DESIGNATED == TRUE & !is.na(DESIGNATED), TRUE, FALSE)) %>%
-  group_by(cp_month_yr, DESIGNATED2) %>%
-  summarize(n = n()) %>%
-  ggplot() +
-  geom_line(aes(x = cp_month_yr, y = n, color = if_else(DESIGNATED2 == TRUE,
-    "Selected", "Not selected"
-  ))) +
-  labs(
-    x = "Month/year", y = "Number of complaints",
-    title = "Number of property crime complaints per month\nand by census tract",
-    color = "Designation Status"
-  ) +
-  theme_classic()
-
-ggsave("../03_output/avg_property_complaints_buffer.png", height = 3, width = 4.5)
-```
-
-```{r}
-# average shootings by Census tract over time
-st_oz %>%
-  filter(!is.na(DESIGNATED)) %>%
-  group_by(GEOID, st_month_yr, DESIGNATED) %>%
-  summarize(n = n()) %>%
-  group_by(st_month_yr, DESIGNATED) %>%
-  summarize(avg = mean(n)) %>%
-  ggplot() +
-  geom_line(aes(x = st_month_yr, y = avg, color = if_else(DESIGNATED == TRUE,
-    "Selected", "Eligible"
-  ))) +
-  labs(
-    x = "Month/year", y = "Number of shootings",
-    title = "Average number of shootings per month\nand by census tract",
-    color = "Designation Status"
-  ) +
-  theme_classic()
-
-ggsave("../03_output/avg_shootings.png", height = 3, width = 4.5)
-
-st_oz %>%
-  filter(buffer == TRUE) %>%
-  mutate(DESIGNATED2 = if_else(DESIGNATED == TRUE & !is.na(DESIGNATED), TRUE, FALSE)) %>%
-  group_by(st_month_yr, DESIGNATED2) %>%
-  summarize(n = n()) %>%
-  ggplot() +
-  geom_line(aes(x = st_month_yr, y = n, color = if_else(DESIGNATED2 == TRUE,
-    "Selected", "Not selected"
-  ))) +
-  labs(
-    x = "Month/year", y = "Number of shootings",
-    title = "Number of shootings per month\nand by census tract",
-    color = "Designation Status"
-  ) +
-  theme_classic()
-
-ggsave("../03_output/avg_buffer_shootings.png", height = 3, width = 4.5)
-
-st_oz %>%
-  filter(!is.na(DESIGNATED)) %>%
-  group_by(GEOID, st_qrtr_yr, DESIGNATED) %>%
-  summarize(n = n()) %>%
-  group_by(st_qrtr_yr, DESIGNATED) %>%
-  summarize(avg = mean(n)) %>%
-  ggplot() +
-  geom_line(aes(x = st_qrtr_yr, y = avg, color = if_else(DESIGNATED == TRUE,
-    "Selected", "Eligible"
-  ))) +
-  labs(
-    x = "Month/year", y = "Number of shootings",
-    title = "Average number of shootings per month\nand by census tract",
-    color = "Designation Status"
-  ) +
-  theme_classic() +
-  scale_x_yearqtr(format = "%Y-Q%q")
-```
-
 ```{r}
 # attempt at adjusted differences for arrests
 ar_oz_adj_diff <- ar_oz %>%
@@ -584,11 +407,27 @@ create_adjusted_plots(cp_oz_adj_diff, outcomes, labs_cp, "complaints", "cp_month
 acs_oz <- read_csv("../00_data/acs_oz.csv")
 
 acs_oz_bg <- read_csv("../00_data/acs_bg.csv")
+
+acs_oz %>% 
+  group_by(DESIGNATED) %>% 
+  summarize(n = n()) %>% 
+  ungroup() %>% 
+  mutate(sum = cumsum(n))
+
+acs_oz %>% 
+  filter(LIC == T) %>% 
+  group_by(DESIGNATED, LIC) %>% 
+  summarize(n = n()) %>% 
+  ungroup() %>% 
+  mutate(sum = cumsum(n),
+         per_total = n / 1448,
+         sum_per_total = sum/1448)
 ```
 
 ```{r}
 acs_oz %>%
   as.data.frame() %>%
+  filter(!is.na(DESIGNATED)) %>% 
   group_by(DESIGNATED) %>%
   # create missing flag
   # duplicate at the block group level
@@ -604,6 +443,27 @@ acs_oz %>%
   select(name, designated, eligible) %>%
   write_csv("../03_output/desc_means.csv", na = "")
 
+acs_oz %>%
+  as.data.frame() %>%
+  filter(!is.na(DESIGNATED)) %>% 
+  group_by(DESIGNATED) %>%
+  # create missing flag
+  # duplicate at the block group level
+  # summary statistics of missingness
+  # really only care about the ones that are close to the boundary
+  summarize(across(population:pct_poverty, ~sum(!is.na(.)))) %>%
+  pivot_longer(cols = c(population:pct_poverty)) %>%
+  mutate(
+    value = round(value, 2),
+    designated_desc = if_else(DESIGNATED == TRUE, "designated", "eligible")
+  ) %>%
+  pivot_wider(id_cols = "name", names_from = "designated_desc", values_from = "value") %>%
+  select(name, designated, eligible) %>% 
+  summarize(designated = max(designated),
+            eligible = max(eligible))
+```
+
+```{r}
 acs_oz %>%
   as.data.frame() %>%
   group_by(DESIGNATED) %>%

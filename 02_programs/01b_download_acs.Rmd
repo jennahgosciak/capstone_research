@@ -29,6 +29,15 @@ oz %>%
   nrow() %>%
   equals(0) %>%
   stopifnot()
+
+oz %>% 
+  as.data.frame() %>% 
+  group_by(DESIGNATED, LIC) %>% 
+  summarize(n = n())
+
+# oz <- oz %>% 
+  ## IMPT: filter out nonLICs from the comparison group
+  ## filter(DESIGNATED == "True" | (DESIGNATED == "False" & LIC == "True"))
 ```
 
 ```{r}
@@ -130,12 +139,6 @@ acs_oz %>%
     designated_desc = if_else(DESIGNATED == "True", "designated", "eligible")
   ) %>%
   pivot_wider(id_cols = "name", names_from = "designated_desc", values_from = "value")
-```
-
-```{r}
-acs_oz %>%
-  filter(GEOID == 36005001900) %>%
-  as.data.frame()
 ```
 
 ```{r}

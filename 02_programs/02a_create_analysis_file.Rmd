@@ -62,8 +62,8 @@ acs_oz <- read_csv("../00_data/acs_oz.csv")
 acs_oz_vars <- acs_oz %>%
   select(GEOID, constructs, urbanvars)
 
-acs_oz %>%
-  group_by(DESIGNATED) %>%
+acs_oz %>% 
+  group_by(DESIGNATED, LIC) %>% 
   summarize(n = n())
 ```
 
@@ -87,6 +87,7 @@ ar_oz2 <- ar_oz %>%
     arrest_date >= mdy("09-14-2020") & arrest_date < mdy("12-14-2020") ~ 9,
     arrest_date >= mdy("12-14-2020") & arrest_date < mdy("03-14-2021") ~ 10
   )) %>%
+  #filter(DESIGNATED == T | (DESIGNATED == F & LIC == T)) %>% 
   mutate(
     treatment = if_else(DESIGNATED == T, 1, 0),
     distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)
@@ -133,6 +134,7 @@ cp_oz2 <- cp_oz %>%
     cmplnt_fr_dt >= mdy("09-14-2020") & cmplnt_fr_dt < mdy("12-14-2020") ~ 9,
     cmplnt_fr_dt >= mdy("12-14-2020") & cmplnt_fr_dt < mdy("03-14-2021") ~ 10
   )) %>%
+  #filter(DESIGNATED == T | (DESIGNATED == F & LIC == T)) %>% 
   mutate(
     treatment = if_else(DESIGNATED == T, 1, 0),
     distance_boundary = if_else(DESIGNATED == F, distance_boundary * -1, distance_boundary)
@@ -155,8 +157,6 @@ cp_oz2 <- cp_oz %>%
   filter(!is.na(quarter))
 
 stopifnot(eeptools::isid(cp_oz2, c("GEOID_b", "quarter")))
-
-# when write methods section, cite paper
 ```
 
 ```{r}
@@ -289,7 +289,7 @@ analysis_file_fe %>%
   write_csv("../00_data/analysis_file_fe.csv")
 
 analysis_file_geom %>%
-  st_write("../00_data/analysis_file_geom.geojson")
+  st_write("../00_data/analysis_file_geom.geojson", delete_dsn = T)
 ```
 
 
