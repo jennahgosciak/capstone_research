@@ -42,11 +42,11 @@ analysis_file <- read_csv("../00_data/analysis_file.csv") %>%
     TRUE ~ NA_real_
   ))
 
-analysis_file %>% 
-  mutate(GEOID = as.character(GEOID)) %>% 
-  left_join(oz, by = "GEOID") %>% 
-  distinct(DESIGNATED, LIC, treatment, status, GEOID) %>% 
-  group_by(DESIGNATED, LIC, treatment, status) %>% 
+analysis_file %>%
+  mutate(GEOID = as.character(GEOID)) %>%
+  left_join(oz, by = "GEOID") %>%
+  distinct(DESIGNATED, LIC, treatment, status, GEOID) %>%
+  group_by(DESIGNATED, LIC, treatment, status) %>%
   summarize(n = n())
 ```
 
@@ -459,13 +459,13 @@ baseline_data <- analysis_file %>%
 stopifnot(eeptools::isid(analysis_file, "GEOID_b"))
 stopifnot(eeptools::isid(baseline_data, "GEOID_b"))
 
-analysis_file %>% 
-  mutate(missing_pop = !is.na(population)) %>% 
-  filter(abs(centroid_distance_boundary) <= 200 & !is.na(population)) %>% 
-  group_by(treatment, status, missing_pop) %>% 
-  summarize(n = n()) %>% 
-  ungroup() %>% 
-  summarize(total =sum(n))
+analysis_file %>%
+  mutate(missing_pop = !is.na(population)) %>%
+  filter(abs(centroid_distance_boundary) <= 200 & !is.na(population)) %>%
+  group_by(treatment, status, missing_pop) %>%
+  summarize(n = n()) %>%
+  ungroup() %>%
+  summarize(total = sum(n))
 ```
 
 ```{r}
@@ -489,8 +489,8 @@ n_vals <- bequiv %>%
 ```{r}
 bequiv %>%
   select(var, N, bandwidth) %>%
-  group_by(bandwidth) %>% 
-  mutate(N_new = formatC(max(N), big.mark = ",")) %>% 
+  group_by(bandwidth) %>%
+  mutate(N_new = formatC(max(N), big.mark = ",")) %>%
   arrange(bandwidth, desc(N))
 
 bequiv %>%
@@ -547,7 +547,6 @@ outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp
   unlist()
 outcomes_cp <- outcomes_cp[1:2]
 outcome_data_cp <- analysis_file[, outcomes_cp]
-
 ```
 
 ```{r}
@@ -800,7 +799,7 @@ generate_rd_plot <- function(df, outcome_var, outcome_lab, p, covariates, type, 
   rdplot(outcome_col, running_var,
     p = p, y.label = str_glue("Average number of {type} per {time} (p={p})"),
     x.label = "distance", title = outcome_lab,
-    covs = covs, h=h, ...
+    covs = covs, h = h, ...
   )
 
   ggsave(str_glue("../03_output/rdplot_{outcome_var}_{p}.png"))
@@ -809,21 +808,25 @@ generate_rd_plot <- function(df, outcome_var, outcome_lab, p, covariates, type, 
 
 
 ```{r}
-walk(c(1, 4), ~ generate_rd_plot(analysis_file_fe, "violent_ellen_winsorize_cp_year0", "Violent crime complaints, year 0", ., c(constructs, str_c("quarter", 1:3)), "complaints", "year"))
-walk2(c(1, 4), c(400, 900), ~ generate_rd_plot(analysis_file_fe, "property_ellen_winsorize_ar_year0", "Property crime arrests, year 0", .x, c(constructs, str_c("quarter", 1:3)), "arrests", "quarter", h = .y))
-```
-```{r}
-walk2(c(1, 4), c(400), ~ generate_rd_plot(analysis_file, "violent_ellen_winsorize_cp_0", "Violent crime complaints, quarter 0", .x, 
-                                          constructs, "complaints", "quarter", h = .y))
+walk2(c(1, 4), c(400), ~ generate_rd_plot(analysis_file, "violent_ellen_winsorize_cp_0", "Violent crime complaints, quarter 0", .x,
+  constructs, "complaints", "quarter",
+  h = .y
+))
 
 walk2(c(1, 4), c(400), ~ generate_rd_plot(analysis_file, "property_ellen_winsorize_cp_0", "Property crime complaints, quarter 0", .x,
-                                          constructs, "complaints", "quarter", h=.y))
+  constructs, "complaints", "quarter",
+  h = .y
+))
 
-walk2(c(1, 4), c(400), ~ generate_rd_plot(analysis_file, "violent_ellen_winsorize_cp_4", "Violent crime complaints, quarter 4", .x, 
-                                          constructs, "complaints", "quarter", h = .y))
+walk2(c(1, 4), c(400), ~ generate_rd_plot(analysis_file, "violent_ellen_winsorize_cp_4", "Violent crime complaints, quarter 4", .x,
+  constructs, "complaints", "quarter",
+  h = .y
+))
 
 walk2(c(1, 4), c(400), ~ generate_rd_plot(analysis_file, "property_ellen_winsorize_cp_4", "Property crime complaints, quarter 4", .x,
-                                          constructs, "complaints", "quarter", h=.y))
+  constructs, "complaints", "quarter",
+  h = .y
+))
 ```
 
 
