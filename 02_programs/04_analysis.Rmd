@@ -528,12 +528,6 @@ outcome_data_cp <- analysis_file[, outcomes_cp]
 ```
 
 ```{r}
-run_model_set_cluster(outcome_data_ar, running_var, outcomes_ar, p = 1, covariates, censustracts)
-
-theory_run_model_set_cluster(outcome_data_ar, running_var, outcomes_ar, p = 4, covariates, bandwidth = 500, censustracts)
-```
-
-```{r}
 output <- map_dfr(
   c(1),
   ~ run_model_set_cluster(outcome_data_ar, running_var, outcomes_ar, p = ., covariates, censustracts)
