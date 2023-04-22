@@ -529,11 +529,11 @@ outcome_data_cp <- analysis_file[, outcomes_cp]
 
 ```{r}
 output <- map_dfr(
-  c(1),
+  c(1, 4),
   ~ run_model_set_cluster(outcome_data_ar, running_var, outcomes_ar, p = ., covariates, censustracts)
 ) %>%
   bind_rows(map_dfr(
-    c(1),
+    c(1, 4),
     ~ run_model_set_cluster(outcome_data_cp, running_var, outcomes_cp, p = ., covariates, censustracts)
   ))
 
@@ -771,7 +771,7 @@ generate_rd_plot <- function(df, outcome_var, outcome_lab, p, covariates, type, 
   rdplot(outcome_col, running_var,
     p = p, y.label = str_glue("Average number of {type} per {time} (p={p})"),
     x.label = "distance", title = outcome_lab,
-    covs = covs, h = h, ...
+    covs = covs, y.lim = c(0, 1), h=h, ...
   )
 
   ggsave(str_glue("../03_output/rdplot_{outcome_var}_{p}.png"))
