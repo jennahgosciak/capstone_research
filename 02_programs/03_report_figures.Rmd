@@ -530,7 +530,7 @@ create_adjusted_plots <- function(df, outcomes, labs, fname, date_var) {
     pctover64, df)
 
   lmproperty <- lm(property_ellen ~ pct_white + pct_higher_ed + pct_rent +
-    pct_native_hc_covered + pct_poverty  + dec_score + SE_Flag + vacancyrate + pctunder18 + pctover64, df)
+    pct_native_hc_covered + pct_poverty + dec_score + SE_Flag + vacancyrate + pctunder18 + pctover64, df)
   modeldata <- cbind(df[rownames(lmviolent$model), ],
     "resid_violent" = lmviolent$residuals,
     "resid_property" = lmproperty$residuals
