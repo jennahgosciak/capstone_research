@@ -529,7 +529,6 @@ bandwidththeory_poly <- map_dfr(
 
 ```{r}
 # Formatting
-
 bandwidththeory_all <- bind_rows(bandwidththeory_lin, bandwidththeory_poly)
 
 bandwidththeory_all_formatted <- bandwidththeory_all %>%

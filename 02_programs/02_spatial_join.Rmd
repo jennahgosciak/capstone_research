@@ -47,10 +47,17 @@ cb <- cb %>%
     as.data.frame() %>%
     mutate(GEOID = str_trim(GEOID)) %>%
     select(-geometry), on = "GEOID")
+
 cb %>%
   as.data.frame() %>%
-  select(DESIGNATED) %>%
-  unique()
+  distinct(DESIGNATED)
+
+cb %>% 
+  mutate(DESIGNATED_lab = case_when(DESIGNATED == T ~ "Designated",
+                                    DESIGNATED == F ~ "Eligible, not designated",
+                                    TRUE ~ "Not eligible")) %>% 
+  as.data.frame() %>% 
+  st_write("../00_data/census_blocks_labeled.geojson", delete_dsn = T)
 ```
 ```{r}
 # load acs data

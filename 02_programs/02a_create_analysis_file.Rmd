@@ -109,7 +109,15 @@ ar_oz2 <- ar_oz %>%
     distance_boundary_ar = mean(distance_boundary_ar, na.rm = T)
   ) %>%
   mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag)) %>%
-  filter(!is.na(quarter))
+  filter(!is.na(quarter)) %>% 
+  bind_rows(
+    ar_oz2 %>% 
+      ungroup() %>% 
+      filter(quarter >= 0) %>% 
+      summarize(violent_ellen_ar = sum(violent_ellen_ar),
+            property_ellen_ar = sum(property_ellen_ar)) %>% 
+      mutate(quarter = 100)
+  )
 
 stopifnot(eeptools::isid(ar_oz2, c("GEOID_b", "quarter")))
 ```
