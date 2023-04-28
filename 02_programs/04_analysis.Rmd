@@ -261,7 +261,7 @@ analysis_file %>%
 bequiv <- map_dfr(
   cross2(
     constructs,
-    seq(200, 1000, 200)
+    seq(264, 1056, 264)
   ),
   ~ run_baseline_checks(baseline_data, outcome = .[[1]], bandwidth = .[[2]])
 )
@@ -294,7 +294,7 @@ bequiv %>%
 bequiv <- map_dfr(
   cross2(
     constructs,
-    seq(200, 1000, 200)
+    seq(264, 1056, 264)
   ),
   ~ run_baseline_checks(baseline_data %>%
     select(-treatment, treatment = treatment2), outcome = .[[1]], bandwidth = .[[2]])
@@ -496,11 +496,11 @@ output %>%
 
 ```{r}
 bandwidththeory_lin <- map_dfr(
-  seq(300, 600, 100),
+  seq(264, 792, 264),
   ~ theory_run_model_set_cluster(outcome_data_ar, running_var, outcomes_ar, p = 1, covariates, bandwidth = ., censustracts)
 ) %>%
   bind_rows(map_dfr(
-    seq(300, 600, 100),
+    seq(264, 792, 264),
     ~ theory_run_model_set_cluster(outcome_data_cp, running_var, outcomes_cp, p = 1, covariates, bandwidth = ., censustracts)
   ))
 
@@ -514,14 +514,14 @@ bandwidththeory_lin %>%
 
 ```{r}
 bandwidththeory_poly <- map_dfr(
-  seq(300, 600, 100),
+  seq(264, 792, 264),
   ~ theory_run_model_set_cluster(outcome_data_ar, running_var, outcomes_ar,
     p = 4, covariates,
     bandwidth = ., censustracts
   )
 ) %>%
   bind_rows(map_dfr(
-    seq(300, 600, 100),
+    seq(264, 792, 264),
     ~ theory_run_model_set_cluster(outcome_data_cp, running_var, outcomes_cp, p = 4, covariates, bandwidth = ., censustracts)
   ))
 ```
@@ -548,7 +548,7 @@ bandwidththeory_all_formatted %>%
 
 bandwidththeory_all_formatted %>%
   filter(winsorize == "winsorize") %>%
-  filter(bandwidth.h == "[500,500]") %>%
+  filter(bandwidth.h == "[528,528]") %>%
   mutate(
     estimate_form = case_when(
       p.value < 0.01 ~ paste0(round(estimate, 2), "***"),
