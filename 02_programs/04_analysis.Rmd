@@ -433,7 +433,7 @@ run_model_set_fe_cluster <- function(outcome_data, running_var, outcomes, p, cov
 # define data and outcomes
 outcomes_ar <- map(
   c("violent_ellen_winsorize_ar_", "property_ellen_winsorize_ar_"),
-  ~ str_c(., c("min4", "min3", "min1", 0, c(1:7)))
+  ~ str_c(., c("min4", "min3", "min1", 0, c(1:7, 100)))
 ) %>%
   unlist()
 
@@ -442,7 +442,8 @@ running_var <- analysis_file[["centroid_distance_boundary"]]
 covariates <- analysis_file[, constructs]
 censustracts <- analysis_file[["GEOID"]]
 
-outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"), ~ str_c(., c("min4", "min3", "min1", 0, c(1:7)))) %>%
+outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"), 
+                   ~ str_c(., c("min4", "min3", "min1", 0, c(1:7, 100)))) %>%
   unlist()
 outcome_data_cp <- analysis_file[, outcomes_cp]
 ```
@@ -575,7 +576,6 @@ outcomes_ar <- map(
   ~ str_c(., c("year-1", "year0", "year1"))
 ) %>%
   unlist()
-outcomes_ar <- outcomes_ar[1:2]
 
 running_var <- analysis_file_fe[["centroid_distance_boundary"]]
 outcome_data_ar <- analysis_file_fe[, outcomes_ar]
