@@ -18,6 +18,7 @@ library(wesanderson) # for colors :)
 library("lmtest")
 library("sandwich")
 library(readxl)
+library(assertr)
 ```
 ```{r}
 # load ozs for nyc
@@ -29,20 +30,19 @@ oz %>%
   equals(0) %>%
   stopifnot()
 
-oz %>% 
-  as.data.frame() %>% 
-  group_by(DESIGNATED, LIC) %>% 
+oz %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED, LIC) %>%
   summarize(n = n())
 
-# oz <- oz %>% 
-  ## IMPT: filter out nonLICs from the comparison group
-  ## filter(DESIGNATED == "True" | (DESIGNATED == "False" & LIC == "True"))
+# oz <- oz %>%
+## IMPT: filter out nonLICs from the comparison group
+## filter(DESIGNATED == "True" | (DESIGNATED == "False" & LIC == "True"))
 ```
 
 ```{r}
 # load varlist
-acs_varlist <- readxl::read_excel("../00_data/acs_varlist.xlsx") %>%
-  filter(include == 1)
+acs_varlist <- readxl::read_excel("../00_data/acs_varlist.xlsx")
 acs_varlist
 
 acs_vars <- acs_varlist$variable
@@ -94,6 +94,13 @@ acs_nyc_wide_bg %>%
 # merge to acs
 acs_oz <- oz %>%
   full_join(acs_nyc_wide, by = "GEOID")
+
+acs_nyc_wide %>%
+  anti_join(oz %>%
+    as.data.frame(), ., by = "GEOID") %>%
+  nrow() %>%
+  equals(0) %>%
+  stopifnot()
 
 acs_oz_bg <- acs_nyc_wide_bg %>%
   rename(GEOID_bg = GEOID) %>%

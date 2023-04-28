@@ -64,8 +64,8 @@ ar <- read_csv("../00_data/arrests_2017_2020.csv")
 ar %>%
   head()
 
-ar %>% 
-  filter(arrest_date < mdy("06-14-2018") & arrest_date >= mdy("06-14-2017")) %>% 
+ar %>%
+  filter(arrest_date < mdy("06-14-2018") & arrest_date >= mdy("06-14-2017")) %>%
   nrow()
 
 ar_sf <- ar %>%
@@ -92,8 +92,8 @@ cp <- read_csv("../00_data/complaints_2017_2020.csv")
 cp %>%
   head()
 
-cp %>% 
-  filter(cmplnt_fr_dt < mdy("06-14-2018") & cmplnt_fr_dt >= mdy("06-14-2017")) %>% 
+cp %>%
+  filter(cmplnt_fr_dt < mdy("06-14-2018") & cmplnt_fr_dt >= mdy("06-14-2017")) %>%
   nrow()
 
 cp_sf <- cp %>%

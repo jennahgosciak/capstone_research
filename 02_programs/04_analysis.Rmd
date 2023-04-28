@@ -42,24 +42,26 @@ analysis_file <- read_csv("../00_data/analysis_file.csv") %>%
     TRUE ~ NA_real_
   ))
 
-analysis_file %>% 
-  mutate(GEOID = as.character(GEOID)) %>% 
-  left_join(oz, by = "GEOID") %>% 
-  distinct(DESIGNATED, LIC, treatment, status, GEOID) %>% 
-  group_by(DESIGNATED, LIC, treatment, status) %>% 
+analysis_file %>%
+  mutate(GEOID = as.character(GEOID)) %>%
+  left_join(oz, by = "GEOID") %>%
+  distinct(DESIGNATED, LIC, treatment, status, GEOID) %>%
+  group_by(DESIGNATED, LIC, treatment, status) %>%
   summarize(n = n())
 ```
 
 ```{r}
-analysis_file %>% 
-  mutate(missing_SE = is.na(SE_Flag),
-           missing_pop = is.na(population)) %>% 
-  filter(abs(centroid_distance_boundary) <= 200 & status == "Ineligible") %>% 
-  group_by(missing_pop) %>% 
+analysis_file %>%
+  mutate(
+    missing_SE = is.na(SE_Flag),
+    missing_pop = is.na(population)
+  ) %>%
+  filter(abs(centroid_distance_boundary) <= 200 & status == "Ineligible") %>%
+  group_by(missing_pop) %>%
   summarize(n = n())
 
-analysis_file %>% 
-  filter(is.na(population)) %>% 
+analysis_file %>%
+  filter(is.na(population)) %>%
   select(vacancyrate, "pctunder18", population, GEOID)
 ```
 
@@ -170,14 +172,15 @@ tidy.rdrobust <- function(outcome, x, outcome_name, p = 1, covs = NULL, ...) {
 ```
 
 ```{r}
+## Baseline Checks
 run_baseline_checks <- function(data, outcome, bandwidth) {
   # drop missing covariate values
   data <- data %>%
     filter(abs(centroid_distance_boundary) < bandwidth)
 
   mod <- lm(paste0(outcome, "~ treatment"), data = data)
-
-  vals <- coeftest(mod, vcov = vcovHC(mod, type = "HC0"))
+  
+  vals <- coeftest(mod, vcov = vcovHC(mod, type = "HC0"), cluster = ~GEOID)
   int <- vals[1, 1]
   treat_est <- vals[2, 1]
   treat_se <- vals[2, 2]
@@ -234,23 +237,87 @@ run_baseline_checks <- function(data, outcome, bandwidth) {
 ```
 
 
+## BASELINE EQUIVALENCE
+
 ```{r}
-run_baseline_checks_rdrobust <- function(outcome_data, running_var, outcomes, p, bandwidth) {
-  # vector to drop missing covariates
-  not_na_rows <- outcome_data %>%
-    is.na() %>%
-    rowSums() %>%
-    magrittr::equals(0)
+baseline_data <- analysis_file %>%
+  select(GEOID_b, constructs, centroid_distance_boundary, status, treatment, treatment2) %>%
+  distinct()
 
-  # drop missing covariate values
-  outcome_data_cov <- outcome_data[not_na_rows, ]
-  running_var_cov <- running_var[not_na_rows]
+stopifnot(eeptools::isid(analysis_file, "GEOID_b"))
+stopifnot(eeptools::isid(baseline_data, "GEOID_b"))
 
-  return(map2_dfr(
-    outcome_data, outcomes,
-    ~ tidy.rdrobust(.x, running_var, .y, p = p, h = bandwidth, b = bandwidth)
-  ))
-}
+analysis_file %>%
+  mutate(missing_pop = !is.na(population)) %>%
+  filter(abs(centroid_distance_boundary) <= 200 & !is.na(population)) %>%
+  group_by(treatment, status, missing_pop) %>%
+  summarize(n = n()) %>%
+  ungroup() %>%
+  summarize(total = sum(n))
+```
+
+```{r}
+# balance test data
+bequiv <- map_dfr(
+  cross2(
+    constructs,
+    seq(264, 1056, 264)
+  ),
+  ~ run_baseline_checks(baseline_data, outcome = .[[1]], bandwidth = .[[2]])
+)
+
+n_vals <- bequiv %>%
+  select(var, N, bandwidth) %>%
+  group_by(bandwidth) %>%
+  summarize(N = formatC(max(N), big.mark = ",")) %>%
+  mutate(var = "Total") %>%
+  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "N")
+```
+
+```{r}
+bequiv %>%
+  select(var, N, bandwidth) %>%
+  group_by(bandwidth) %>%
+  mutate(N_new = formatC(max(N), big.mark = ",")) %>%
+  arrange(bandwidth, desc(N))
+
+bequiv %>%
+  mutate(difference = str_c(difference, "\n(", se, ")")) %>%
+  select(var, difference, bandwidth) %>%
+  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "difference") %>%
+  bind_rows(n_vals) %>%
+  write_csv(str_glue("../03_output/baseline_form_lm {Sys.Date()}{file_suffix}.csv"))
+```
+
+```{r}
+# balance test data
+bequiv <- map_dfr(
+  cross2(
+    constructs,
+    seq(264, 1056, 264)
+  ),
+  ~ run_baseline_checks(baseline_data %>%
+    select(-treatment, treatment = treatment2), outcome = .[[1]], bandwidth = .[[2]])
+)
+
+n_vals <- bequiv %>%
+  select(var, N, bandwidth) %>%
+  group_by(bandwidth) %>%
+  summarize(N = formatC(max(N), big.mark = ",")) %>%
+  mutate(var = "Total") %>%
+  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "N")
+
+bequiv %>%
+  mutate(difference = str_c(difference, "\n(", se, ")")) %>%
+  select(var, difference, bandwidth) %>%
+  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "difference") %>%
+  bind_rows(n_vals) %>%
+  write_csv(str_glue("../03_output/baseline_form_lm_paired {Sys.Date()}{file_suffix}.csv"))
+```
+
+## RESULTS
+
+```{r}
 
 run_model_set <- function(outcome_data, running_var, outcomes, p, covs) {
   # vector to drop missing covariates
@@ -285,6 +352,7 @@ run_model_set_cluster <- function(outcome_data, running_var, outcomes, p, covs, 
   outcome_data_cov <- outcome_data[keep_cov, ]
   running_var_cov <- running_var[keep_cov]
   covs <- covs[keep_cov, ]
+  censustracts_cov <- cluster[keep_cov]
 
   return(map2_dfr(
     outcome_data, outcomes,
@@ -292,7 +360,7 @@ run_model_set_cluster <- function(outcome_data, running_var, outcomes, p, covs, 
   ) %>%
     bind_rows(map2_dfr(
       outcome_data_cov, outcomes,
-      ~ tidy.rdrobust(.x, running_var_cov, .y, p = p, covs = covs, cluster_cov = cluster)
+      ~ tidy.rdrobust(.x, running_var_cov, .y, p = p, covs = covs, cluster = censustracts_cov)
     )))
 }
 
@@ -307,7 +375,7 @@ theory_run_model_set_cluster <- function(outcome_data, running_var, outcomes, p,
   outcome_data_cov <- outcome_data[keep_cov, ]
   running_var_cov <- running_var[keep_cov]
   covs <- covs[keep_cov, ]
-  censustracts_cov <- censustracts[keep_cov]
+  censustracts_cov <- cluster[keep_cov]
 
   return(map2_dfr(
     outcome_data, outcomes,
@@ -315,12 +383,31 @@ theory_run_model_set_cluster <- function(outcome_data, running_var, outcomes, p,
   ) %>%
     bind_rows(map2_dfr(
       outcome_data_cov, outcomes,
-      ~ tidy.rdrobust(.x, running_var_cov, .y, p = p, covs = covs, h = bandwidth, b = bandwidth, cluster =
-                        censustracts_cov)
+      ~ tidy.rdrobust(.x, running_var_cov, .y,
+        p = p, covs = covs, h = bandwidth, b = bandwidth, cluster =
+          censustracts_cov
+      )
     )))
 }
 
 run_model_set_fe <- function(outcome_data, running_var, outcomes, p, covs) {
+  # vector to drop missing covariates
+  keep_cov <- covs %>%
+    is.na() %>%
+    rowSums() %>%
+    magrittr::equals(0)
+  # drop missing covariate values
+  outcome_data_cov <- outcome_data[keep_cov, ]
+  running_var_cov <- running_var[keep_cov]
+  covs <- covs[keep_cov, ]
+  sum(is.na(running_var_cov))
+  return(map2_dfr(
+    outcome_data_cov, outcomes,
+    ~ tidy.rdrobust(.x, running_var_cov, .y, p = p, covs = covs)
+  ))
+}
+
+run_model_set_fe_cluster <- function(outcome_data, running_var, outcomes, p, covs, cluster) {
   # vector to drop missing covariates
   keep_cov <- covs %>%
     is.na() %>%
@@ -331,95 +418,17 @@ run_model_set_fe <- function(outcome_data, running_var, outcomes, p, covs) {
   outcome_data_cov <- outcome_data[keep_cov, ]
   running_var_cov <- running_var[keep_cov]
   covs <- covs[keep_cov, ]
+  censustracts_cov <- cluster[keep_cov]
 
   sum(is.na(running_var_cov))
   return(map2_dfr(
     outcome_data_cov, outcomes,
-    ~ tidy.rdrobust(.x, running_var_cov, .y, p = p, covs = covs)
+    ~ tidy.rdrobust(.x, running_var_cov, .y, p = p, cluster = censustracts_cov)
   ))
 }
 ```
 
-## BASELINE EQUIVALENCE
-
-```{r}
-baseline_data <- analysis_file %>%
-  select(GEOID_b, constructs, centroid_distance_boundary, status, treatment, treatment2) %>%
-  distinct()
-
-stopifnot(eeptools::isid(analysis_file, "GEOID_b"))
-stopifnot(eeptools::isid(baseline_data, "GEOID_b"))
-
-analysis_file %>% 
-  mutate(missing_pop = !is.na(population)) %>% 
-  filter(abs(centroid_distance_boundary) <= 200 & !is.na(population)) %>% 
-  group_by(treatment, status, missing_pop) %>% 
-  summarize(n = n()) %>% 
-  ungroup() %>% 
-  summarize(total =sum(n))
-```
-
-```{r}
-# balance test data
-bequiv <- map_dfr(
-  cross2(
-    constructs,
-    seq(200, 1000, 200)
-  ),
-  ~ run_baseline_checks(baseline_data, outcome = .[[1]], bandwidth = .[[2]])
-)
-
-n_vals <- bequiv %>%
-  select(var, N, bandwidth) %>%
-  group_by(bandwidth) %>%
-  summarize(N = formatC(max(N), big.mark = ",")) %>%
-  mutate(var = "Total") %>%
-  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "N")
-```
-
-```{r}
-bequiv %>%
-  select(var, N, bandwidth) %>%
-  group_by(bandwidth) %>% 
-  mutate(N_new = formatC(max(N), big.mark = ",")) %>% 
-  arrange(bandwidth, desc(N))
-
-bequiv %>%
-  mutate(difference = str_c(difference, "\n(", se, ")")) %>%
-  select(var, difference, bandwidth) %>%
-  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "difference") %>%
-  bind_rows(n_vals) %>%
-  write_csv(str_glue("../03_output/baseline_form_lm_v2 {Sys.Date()}{file_suffix}.csv"))
-```
-
-```{r}
-# balance test data
-bequiv <- map_dfr(
-  cross2(
-    constructs,
-    seq(200, 1000, 200)
-  ),
-  ~ run_baseline_checks(baseline_data %>%
-    select(-treatment, treatment = treatment2), outcome = .[[1]], bandwidth = .[[2]])
-)
-
-n_vals <- bequiv %>%
-  select(var, N, bandwidth) %>%
-  group_by(bandwidth) %>%
-  summarize(N = formatC(max(N), big.mark = ",")) %>%
-  mutate(var = "Total") %>%
-  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "N")
-
-bequiv %>%
-  mutate(difference = str_c(difference, "\n(", se, ")")) %>%
-  select(var, difference, bandwidth) %>%
-  pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "difference") %>%
-  bind_rows(n_vals) %>%
-  write_csv(str_glue("../03_output/baseline_form_lm_paired {Sys.Date()}{file_suffix}.csv"))
-```
-
 ## RESULTS
-
 ```{r}
 # define data and outcomes
 outcomes_ar <- map(
@@ -441,11 +450,11 @@ outcome_data_cp <- analysis_file[, outcomes_cp]
 ```{r}
 output <- map_dfr(
   c(1, 4),
-  ~ run_model_set(outcome_data_ar, running_var, outcomes_ar, p = ., covariates)
+  ~ run_model_set_cluster(outcome_data_ar, running_var, outcomes_ar, p = ., covariates, censustracts)
 ) %>%
   bind_rows(map_dfr(
     c(1, 4),
-    ~ run_model_set(outcome_data_cp, running_var, outcomes_cp, p = ., covariates)
+    ~ run_model_set_cluster(outcome_data_cp, running_var, outcomes_cp, p = ., covariates, censustracts)
   ))
 
 output <- output %>%
@@ -486,55 +495,42 @@ output %>%
 ## THEORY-DRIVEN BANDWIDTHS
 
 ```{r}
-bandwidththeory_lin_ar <- map_dfr(
-    seq(300, 600, 100),
+bandwidththeory_lin <- map_dfr(
+  seq(264, 792, 264),
   ~ theory_run_model_set_cluster(outcome_data_ar, running_var, outcomes_ar, p = 1, covariates, bandwidth = ., censustracts)
 ) %>%
   bind_rows(map_dfr(
-    seq(300, 600, 100),
-  ~ theory_run_model_set_cluster(outcome_data_cp, running_var, outcomes_cp, p = 1, covariates, bandwidth = ., censustracts)
-))
+    seq(264, 792, 264),
+    ~ theory_run_model_set_cluster(outcome_data_cp, running_var, outcomes_cp, p = 1, covariates, bandwidth = ., censustracts)
+  ))
 
-bandwidththeory_lin_ar %>% 
-  select(outcome, bandwidth.h, term, order, covs, everything()) %>% 
-  filter(outcome == "violent_ellen_winsorize_ar_min4" & bandwidth.h == "[300,300]") %>% 
-  nrow() %>% 
-  magrittr::equals(6) %>% 
+bandwidththeory_lin %>%
+  select(outcome, bandwidth.h, term, order, covs, everything()) %>%
+  filter(outcome == "violent_ellen_winsorize_ar_min4" & bandwidth.h == "[300,300]") %>%
+  nrow() %>%
+  magrittr::equals(6) %>%
   stopifnot()
 ```
 
 ```{r}
-bandwidththeory_poly_ar <- map_dfr(
-    seq(300, 600, 100),
-  ~ theory_run_model_set_cluster(outcome_data_ar, running_var, outcomes_ar, p = 4, covariates,
-                                 bandwidth = ., censustracts)
+bandwidththeory_poly <- map_dfr(
+  seq(264, 792, 264),
+  ~ theory_run_model_set_cluster(outcome_data_ar, running_var, outcomes_ar,
+    p = 4, covariates,
+    bandwidth = ., censustracts
+  )
 ) %>%
   bind_rows(map_dfr(
-    seq(300, 600, 100),
-  ~ theory_run_model_set_cluster(outcome_data_cp, running_var, outcomes_cp, p = 4, covariates, bandwidth = ., censustracts)
-))
+    seq(264, 792, 264),
+    ~ theory_run_model_set_cluster(outcome_data_cp, running_var, outcomes_cp, p = 4, covariates, bandwidth = ., censustracts)
+  ))
 ```
 
-```{r}
-bandwidththeory_lin_cp <- map_dfr(
-    seq(300, 600, 100),
-  ~ theory_run_model_set_cluster(outcome_data_cp, running_var, outcomes_cp, p = 1, covariates, bandwidth = ., censustracts)
-)
-
-```
 
 ```{r}
-bandwidththeory_poly_cp <- map_dfr(
-    seq(300, 600, 100),
-  ~ theory_run_model_set_cluster(outcome_data_cp, running_var, outcomes_cp, p = 4, covariates, bandwidth = ., censustracts)
-)
->>>>>>> 272b82283c430bd0dcd2b2b76dcce8d78b2ceee4
-```
+# Formatting
 
-```{r}
-#Formatting
-
-bandwidththeory_all <- bind_rows(bandwidththeory_lin_ar, bandwidththeory_lin_cp, bandwidththeory_poly_ar, bandwidththeory_poly_cp)
+bandwidththeory_all <- bind_rows(bandwidththeory_lin, bandwidththeory_poly)
 
 bandwidththeory_all_formatted <- bandwidththeory_all %>%
   separate(outcome, c("crime_type", "measurement", "winsorize", "arrest_or_complaint", "quarter")) %>%
@@ -542,7 +538,7 @@ bandwidththeory_all_formatted <- bandwidththeory_all %>%
   select(crime_type, arrest_or_complaint, winsorize, term, order, covs, quarter, everything()) %>%
   arrange(crime_type, arrest_or_complaint, term, order, covs, quarter)
 
-bandwidththeory_polyform %>%
+bandwidththeory_all_formatted %>%
   write_csv(str_glue("../03_output/results_theory_{Sys.Date()}{file_suffix}.csv"))
 
 bandwidththeory_all_formatted %>%
@@ -552,6 +548,7 @@ bandwidththeory_all_formatted %>%
 
 bandwidththeory_all_formatted %>%
   filter(winsorize == "winsorize") %>%
+  filter(bandwidth.h == "[528,528]") %>%
   mutate(
     estimate_form = case_when(
       p.value < 0.01 ~ paste0(round(estimate, 2), "***"),
@@ -562,7 +559,7 @@ bandwidththeory_all_formatted %>%
     coef_form = str_c(estimate_form, "\n(", round(std.error, 2), ")")
   ) %>%
   pivot_wider(
-    id_cols = c("quarter", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint", "bandwidth.h"),
+    id_cols = c("quarter", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint"),
     values_from = "coef_form"
   ) %>%
   select(c("quarter", "order", "covs"), matches("_ar"), matches("_cp")) %>%
@@ -579,16 +576,18 @@ outcomes_ar <- map(
   ~ str_c(., c("year-1", "year0", "year1"))
 ) %>%
   unlist()
+outcomes_ar <- outcomes_ar[1:2]
 
 running_var <- analysis_file_fe[["centroid_distance_boundary"]]
 outcome_data_ar <- analysis_file_fe[, outcomes_ar]
 covariates <- analysis_file_fe[, c(constructs, str_c("quarter", 1:3))]
+censustracts <- analysis_file_fe[["GEOID"]]
 
 outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"), ~ str_c(., c("year-1", "year0", "year1"))) %>%
   unlist()
-
 outcome_data_cp <- analysis_file_fe[, outcomes_cp]
 ```
+
 
 ```{r}
 output_fe <- map_dfr(
@@ -598,6 +597,27 @@ output_fe <- map_dfr(
   bind_rows(map_dfr(
     c(1, 4),
     ~ run_model_set_fe(outcome_data_cp, running_var, outcomes_cp, p = ., covariates)
+  ))
+
+output_fe <- output_fe %>%
+  separate(outcome, c("crime_type", "measurement", "winsorize", "arrest_or_complaint", "year")) %>%
+  select(-c(measurement)) %>%
+  select(crime_type, arrest_or_complaint, winsorize, term, order, covs, year, everything()) %>%
+  arrange(crime_type, arrest_or_complaint, term, order, covs, year)
+
+output_fe %>%
+  write_csv(str_glue("../03_output/results_fe_{Sys.Date()}{file_suffix}.csv"))
+```
+
+```{r}
+
+output_fe <- map_dfr(
+  c(1, 4),
+  ~ run_model_set_fe_cluster(outcome_data_ar, running_var, outcomes_ar, p = ., covariates, censustracts)
+) %>%
+  bind_rows(map_dfr(
+    c(1, 4),
+    ~ run_model_set_fe_cluster(outcome_data_cp, running_var, outcomes_cp, p = ., covariates, censustracts)
   ))
 
 output_fe <- output_fe %>%
@@ -651,12 +671,12 @@ generate_rd_plot <- function(df, outcome_var, outcome_lab, p, covariates, type, 
     magrittr::extract2("centroid_distance_boundary")
 
   covs <- df_filt[, covariates]
-  
+
   # creating plots
   rdplot(outcome_col, running_var,
     p = p, y.label = str_glue("Average number of {type} per {time} (p={p})"),
     x.label = "distance", title = outcome_lab,
-    covs = covs, h=h, ...
+    covs = covs, y.lim = c(0, 1), h=h, ...
   )
 
   ggsave(str_glue("../03_output/rdplot_{outcome_var}_{p}.png"))
@@ -665,30 +685,25 @@ generate_rd_plot <- function(df, outcome_var, outcome_lab, p, covariates, type, 
 
 
 ```{r}
-walk2(c(1, 4), c(400), ~ generate_rd_plot(analysis_file, "violent_ellen_winsorize_ar_0", "Violent crime arrests, quarter 0", .x, 
-                                          constructs, "arrests", "quarter", h = .y))
-
-walk2(c(1, 4), c(400), ~ generate_rd_plot(analysis_file, "property_ellen_winsorize_ar_0", "Property crime arrests, quarter 0", .x,
-                                          constructs, "arrests", "quarter", h=.y))
-
-walk2(c(1, 4), c(400), ~ generate_rd_plot(analysis_file, "violent_ellen_winsorize_ar_4", "Violent crime arrests, quarter 4", .x, 
-                                          constructs, "arrests", "quarter", h = .y))
-
-walk2(c(1, 4), c(400), ~ generate_rd_plot(analysis_file, "property_ellen_winsorize_ar_4", "Property crime arrests, quarter 4", .x,
-                                          constructs, "arrests", "quarter", h=.y))
-```
-```{r}
-walk2(c(1, 4), c(400), ~ generate_rd_plot(analysis_file, "violent_ellen_winsorize_cp_0", "Violent crime complaints, quarter 0", .x, 
-                                          constructs, "complaints", "quarter", h = .y))
+walk2(c(1, 4), c(400), ~ generate_rd_plot(analysis_file, "violent_ellen_winsorize_cp_0", "Violent crime complaints, quarter 0", .x,
+  constructs, "complaints", "quarter",
+  h = .y
+))
 
 walk2(c(1, 4), c(400), ~ generate_rd_plot(analysis_file, "property_ellen_winsorize_cp_0", "Property crime complaints, quarter 0", .x,
-                                          constructs, "complaints", "quarter", h=.y))
+  constructs, "complaints", "quarter",
+  h = .y
+))
 
-walk2(c(1, 4), c(400), ~ generate_rd_plot(analysis_file, "violent_ellen_winsorize_cp_4", "Violent crime complaints, quarter 4", .x, 
-                                          constructs, "complaints", "quarter", h = .y))
+walk2(c(1, 4), c(400), ~ generate_rd_plot(analysis_file, "violent_ellen_winsorize_cp_4", "Violent crime complaints, quarter 4", .x,
+  constructs, "complaints", "quarter",
+  h = .y
+))
 
 walk2(c(1, 4), c(400), ~ generate_rd_plot(analysis_file, "property_ellen_winsorize_cp_4", "Property crime complaints, quarter 4", .x,
-                                          constructs, "complaints", "quarter", h=.y))
+  constructs, "complaints", "quarter",
+  h = .y
+))
 ```
 
 
