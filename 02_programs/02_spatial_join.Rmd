@@ -56,9 +56,46 @@ cb %>%
   mutate(DESIGNATED_lab = case_when(DESIGNATED == T ~ "Designated",
                                     DESIGNATED == F ~ "Eligible, not designated",
                                     TRUE ~ "Not eligible")) %>% 
-  as.data.frame() %>% 
   st_write("../00_data/census_blocks_labeled.geojson", delete_dsn = T)
 ```
+````{r}
+# load census tracts and census blocks
+ct <- st_read("https://data.cityofnewyork.us/resource/i69b-3rdj.geojson?$limit=1000000") %>%
+  st_transform(2263)  %>%
+  mutate(
+    county_code = case_when(
+      boro_code == 1 ~ "36061",
+      boro_code == 2 ~ "36005",
+      boro_code == 3 ~ "36047",
+      boro_code == 4 ~ "36081",
+      boro_code == 5 ~ "36085"
+    ),
+    GEOID = str_c(county_code, ct2010),
+  ) %>%
+  mutate(geometry = st_make_valid(geometry))
+ct
+
+table(st_is_valid(ct))
+
+ct <- ct %>%
+  left_join(nyc_oz %>%
+    as.data.frame() %>%
+    mutate(GEOID = str_trim(GEOID)) %>%
+    select(-geometry), on = "GEOID")
+
+ct %>%
+  as.data.frame() %>%
+  distinct(DESIGNATED)
+
+ct %>% 
+  mutate(DESIGNATED_lab = case_when(DESIGNATED == T ~ "Designated",
+                                    DESIGNATED == F ~ "Eligible, not designated",
+                                    TRUE ~ "Not eligible")) %>% 
+  st_write("../00_data/census_tracts_labeled.geojson", delete_dsn = T)
+
+eeptools::isid(as.data.frame(ct), "GEOID")
+```
+
 ```{r}
 # load acs data
 acs_oz <- read_csv("../00_data/acs_oz.csv")
