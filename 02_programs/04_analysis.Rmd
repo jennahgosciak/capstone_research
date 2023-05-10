@@ -41,13 +41,6 @@ analysis_file <- read_csv("../00_data/analysis_file.csv") %>%
     GEOID_b %in% centroid_distance_pairs$dist_pair ~ 0,
     TRUE ~ NA_real_
   ))
-
-analysis_file %>%
-  mutate(GEOID = as.character(GEOID)) %>%
-  left_join(oz, by = "GEOID") %>%
-  distinct(DESIGNATED, LIC, treatment, status, GEOID) %>%
-  group_by(DESIGNATED, LIC, treatment, status) %>%
-  summarize(n = n())
 ```
 
 ```{r}
@@ -91,18 +84,6 @@ analysis_file %>%
 analysis_file %>%
   group_by(treatment, treatment2) %>%
   summarize(n = n())
-
-analysis_file %>%
-  filter(centroid_distance_boundary >= 0) %>%
-  distinct(treatment)
-
-analysis_file_fe %>%
-  filter(centroid_distance_boundary >= 0) %>%
-  distinct(status)
-
-analysis_file_fe %>%
-  filter(centroid_distance_boundary < 0) %>%
-  distinct(status)
 ```
 
 ```{r}
@@ -173,10 +154,12 @@ tidy.rdrobust <- function(outcome, x, outcome_name, p = 1, c = 0, covs = NULL, .
 
 ```{r}
 ## Baseline Checks
-run_baseline_checks <- function(data, outcome, bandwidth) {
+run_baseline_checks <- function(data, outcome, bandwidth=NA) {
   # drop missing covariate values
-  data <- data %>%
-    filter(abs(centroid_distance_boundary) < bandwidth)
+  if (!is.na(bandwidth)) {
+    data <- data %>%
+      filter(abs(centroid_distance_boundary) < bandwidth)
+  }
 
   mod <- lm(paste0(outcome, "~ treatment"), data = data)
   
@@ -246,14 +229,6 @@ baseline_data <- analysis_file %>%
 
 stopifnot(eeptools::isid(analysis_file, "GEOID_b"))
 stopifnot(eeptools::isid(baseline_data, "GEOID_b"))
-
-analysis_file %>%
-  mutate(missing_pop = !is.na(population)) %>%
-  filter(abs(centroid_distance_boundary) <= 200 & !is.na(population)) %>%
-  group_by(treatment, status, missing_pop) %>%
-  summarize(n = n()) %>%
-  ungroup() %>%
-  summarize(total = sum(n))
 ```
 
 ```{r}
@@ -261,7 +236,7 @@ analysis_file %>%
 bequiv <- map_dfr(
   cross2(
     constructs,
-    seq(264, 1056, 264)
+    c(NA, seq(264, 1056, 264))
   ),
   ~ run_baseline_checks(baseline_data, outcome = .[[1]], bandwidth = .[[2]])
 )
@@ -272,6 +247,7 @@ n_vals <- bequiv %>%
   summarize(N = formatC(max(N), big.mark = ",")) %>%
   mutate(var = "Total") %>%
   pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "N")
+n_vals
 ```
 
 ```{r}
