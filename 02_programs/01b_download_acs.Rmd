@@ -9,7 +9,7 @@ output:
 
 This notebook generates some initial descriptives of selected and eligible OZ tracts in NYC using data from the American Community Survey.
 
-```{r}
+```{r, include=F}
 library(tidyverse)
 library(tidycensus)
 library(magrittr)
