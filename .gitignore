@@ -2,9 +2,11 @@
 *.csv
 *.json
 *.geojson
-/00_data/
+!/00_data/acs_varlist.csv
+/00_data
 03_output/
 /04_qgis/
+
 
 # History files
 .Rhistory
