@@ -560,7 +560,6 @@ bandwidththeory_all_formatted %>%
   select(c("quarter", "order", "covs"), matches("Conventional"), matches("Bias"), matches("Robust")) %>%
   select(c("quarter", "order", "covs"), matches("property"), matches("violent")) %>%
   write_csv(str_glue("../03_output/results_form_theory_{Sys.Date()}{file_suffix}.csv"))
->>>>>>> 5514d80cb6283d680bb0bef6c557511a5e27a89e
 ```
 
 ## FIXED EFFECTS
