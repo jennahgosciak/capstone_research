@@ -179,7 +179,7 @@ run_baseline_checks <- function(data, outcome, bandwidth) {
     filter(abs(centroid_distance_boundary) < bandwidth)
 
   mod <- lm(paste0(outcome, "~ treatment"), data = data)
-  
+
   vals <- coeftest(mod, vcov = vcovHC(mod, type = "HC0"), cluster = ~GEOID)
   int <- vals[1, 1]
   treat_est <- vals[2, 1]
@@ -318,7 +318,6 @@ bequiv %>%
 ## RESULTS
 
 ```{r}
-
 run_model_set <- function(outcome_data, running_var, outcomes, p, covs) {
   # vector to drop missing covariates
   keep_cov <- covs %>%
@@ -442,8 +441,10 @@ running_var <- analysis_file[["centroid_distance_boundary"]]
 covariates <- analysis_file[, constructs]
 censustracts <- analysis_file[["GEOID"]]
 
-outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"), 
-                   ~ str_c(., c("min4", "min3", "min1", 0, c(1:7, 10)))) %>%
+outcomes_cp <- map(
+  c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"),
+  ~ str_c(., c("min4", "min3", "min1", 0, c(1:7, 10)))
+) %>%
   unlist()
 outcome_data_cp <- analysis_file[, outcomes_cp]
 ```
@@ -485,7 +486,7 @@ output %>%
     coef_form = str_c(estimate_form, "\n(", round(std.error, 2), ")")
   ) %>%
   pivot_wider(
-    id_cols = c("quarter", "order", "covs"), 
+    id_cols = c("quarter", "order", "covs"),
     names_from = c("crime_type", "term", "arrest_or_complaint"),
     values_from = "coef_form"
   ) %>%
@@ -668,7 +669,7 @@ generate_rd_plot <- function(df, outcome_var, outcome_lab, p, covariates, type, 
   rdplot(outcome_col, running_var,
     p = p, y.label = str_glue("Average number of {type} per {time} (p={p})"),
     x.label = "distance", title = outcome_lab,
-    covs = covs, y.lim = c(0, 1), h=h, ...
+    covs = covs, y.lim = c(0, 1), h = h, ...
   )
 
   ggsave(str_glue("../03_output/rdplot_{outcome_var}_{p}.png"))

@@ -62,7 +62,8 @@ cb %>%
   )) %>%
   st_write("../00_data/census_blocks_labeled.geojson", delete_dsn = T)
 ```
-````{r}
+
+```{r}
 # load census tracts and census blocks
 ct <- st_read("https://data.cityofnewyork.us/resource/i69b-3rdj.geojson?$limit=1000000") %>%
   st_transform(2263) %>%
@@ -124,17 +125,6 @@ ar_sf <- ar %>%
   st_transform(2263)
 
 ar_sf
-```
-```{r}
-# load shootings
-st <- read_csv("../00_data/shootings_2017_2020.csv")
-st %>%
-  head()
-
-st_sf <- st %>%
-  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>%
-  # convert to projected coordinate system, state plan ny, feet
-  st_transform(2263)
 ```
 
 ```{r}
@@ -222,12 +212,11 @@ ggplot() +
   geom_sf(data = oz_bound, color = "blue") +
   theme_void()
 ```
+
 ```{r}
 # compute distances
 centroid_distances <- cb_centroid %>%
   mutate(centroid_distance_boundary = st_distance(cb_centroid, oz_bound))
-
-centroid_distances
 
 centroid_distances %>%
   st_write("../03_output/centroid_distances.geojson", delete_dsn = T)
@@ -242,7 +231,6 @@ y <- centroid_distances %>%
   filter(DESIGNATED == F | is.na(DESIGNATED))
 
 dist_mat <- st_distance(x, y)
-dist_mat
 ```
 ```{r}
 min_dist_index <- y[apply(as.matrix(dist_mat), 1, which.min), ] %>%
@@ -267,25 +255,7 @@ centroid_distance_pairs %>%
 centroid_distance_pairs %>%
   write_csv("../03_output/centroid_distance_pairs.csv")
 ```
-```{r}
-st_oz <- st_sf %>%
-  st_join(cb, left = TRUE) %>%
-  mutate(distance_boundary = st_distance(st_sf, oz_bound))
 
-# checking no new obs introduced
-st_sf %>%
-  as.data.frame() %>%
-  nrow() %>%
-  equals(
-    st_oz %>%
-      as.data.frame() %>%
-      nrow()
-  ) %>%
-  stopifnot()
-
-st_oz %>%
-  head()
-```
 ```{r}
 cp_oz <- cp_sf %>%
   st_join(cb, left = TRUE) %>%
@@ -304,10 +274,6 @@ cp_oz %>%
 acs_oz_vars <- acs_oz %>%
   select(GEOID, population:pctover64) %>%
   mutate(GEOID = as.character(GEOID))
-
-
-st_oz_acs <- st_oz %>%
-  left_join(acs_oz_vars, by = "GEOID")
 
 cp_oz_acs <- cp_oz %>%
   left_join(acs_oz_vars, by = "GEOID")
@@ -349,23 +315,6 @@ ar_oz_acs %>%
   as.data.frame() %>%
   mutate(distance_boundary = as.numeric(distance_boundary)) %>%
   write_csv("../00_data/ar_oz.csv")
-
-# ar_oz %>%
-#   st_write("../00_data/ar_oz.geojson",
-#     delete_dsn = TRUE
-#   )
-```
-
-```{r}
-st_oz_acs %>%
-  as.data.frame() %>%
-  mutate(distance_boundary = as.numeric(distance_boundary)) %>%
-  write_csv("../00_data/st_oz.csv")
-
-st_oz_acs %>%
-  st_write("../00_data/st_oz.geojson",
-    delete_dsn = TRUE
-  )
 ```
 
 ```{r}
@@ -373,10 +322,5 @@ cp_oz_acs %>%
   as.data.frame() %>%
   mutate(distance_boundary = as.numeric(distance_boundary)) %>%
   write_csv("../00_data/cp_oz.csv")
-
-# cp_oz %>%
-#   select(-c(cmplnt_fr_tm, cmplnt_to_tm)) %>%
-#   st_write("../00_data/cp_oz.geojson",
-#            delete_dsn = TRUE)
 ```
 
