@@ -2,7 +2,7 @@
 
 This repository holds all the code used in developing Team 2's Capstone project for the 2022-2023 academic year.
 
-The Project Team: Adelaide Currin [@addiecurrin], Haowei Wang [@haowei1234], Jennah Gosciak [@jennahgosciak], Yiping Zuo [@YipingZuo]
+The Project Team: Adelaide Currin [@addiecurrin](https://github.com/addiecurrin), Haowei Wang [@haowei1234](https://github.com/haowei1234), Jennah Gosciak [@jennahgosciak](https://github.com/jennahgosciak), Yiping Zuo [@YipingZuo](https://github.com/YipingZuo)
 
 **Working title:** Opportunity Zones and Crime in NYC
 
