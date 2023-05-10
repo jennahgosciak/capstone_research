@@ -36,8 +36,10 @@ acs_varlist
 acs_vars <- acs_varlist$variable
 names(acs_vars) <- acs_varlist$description
 
-constructs <- c("pct_white", "pct_higher_ed", 
-                "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
+constructs <- c(
+  "pct_white", "pct_higher_ed",
+  "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg"
+)
 urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
 ```
 

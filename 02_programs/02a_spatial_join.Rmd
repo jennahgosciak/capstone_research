@@ -1,5 +1,5 @@
 ---
-title: "Downloads crime data from NYC Open Data"
+title: "Spatial join between NYC OZ Boundary and crime incidents"
 output: html_document
 author: "Adelaide Currin, Haowei Wang, Jennah Gosciak, Yiping Zuo"
 date: "2022-11-07"
@@ -13,6 +13,8 @@ library(sf)
 library(magrittr)
 library(stats)
 ```
+
+## Load data
 
 ```{r}
 # load oz data
@@ -52,16 +54,18 @@ cb %>%
   as.data.frame() %>%
   distinct(DESIGNATED)
 
-cb %>% 
-  mutate(DESIGNATED_lab = case_when(DESIGNATED == T ~ "Designated",
-                                    DESIGNATED == F ~ "Eligible, not designated",
-                                    TRUE ~ "Not eligible")) %>% 
+cb %>%
+  mutate(DESIGNATED_lab = case_when(
+    DESIGNATED == T ~ "Designated",
+    DESIGNATED == F ~ "Eligible, not designated",
+    TRUE ~ "Not eligible"
+  )) %>%
   st_write("../00_data/census_blocks_labeled.geojson", delete_dsn = T)
 ```
 ````{r}
 # load census tracts and census blocks
 ct <- st_read("https://data.cityofnewyork.us/resource/i69b-3rdj.geojson?$limit=1000000") %>%
-  st_transform(2263)  %>%
+  st_transform(2263) %>%
   mutate(
     county_code = case_when(
       boro_code == 1 ~ "36061",
@@ -87,10 +91,12 @@ ct %>%
   as.data.frame() %>%
   distinct(DESIGNATED)
 
-ct %>% 
-  mutate(DESIGNATED_lab = case_when(DESIGNATED == T ~ "Designated",
-                                    DESIGNATED == F ~ "Eligible, not designated",
-                                    TRUE ~ "Not eligible")) %>% 
+ct %>%
+  mutate(DESIGNATED_lab = case_when(
+    DESIGNATED == T ~ "Designated",
+    DESIGNATED == F ~ "Eligible, not designated",
+    TRUE ~ "Not eligible"
+  )) %>%
   st_write("../00_data/census_tracts_labeled.geojson", delete_dsn = T)
 
 eeptools::isid(as.data.frame(ct), "GEOID")
@@ -165,10 +171,7 @@ oz_bound %>%
   theme_void()
 ```
 
-```{r}
-# load adj blocks
-cb_adj <- read_csv("../00_data/cb_adjacent.csv")
-```
+## Performing spatial  joins
 
 ```{r}
 # spatial joins
@@ -229,6 +232,7 @@ centroid_distances
 centroid_distances %>%
   st_write("../03_output/centroid_distances.geojson", delete_dsn = T)
 ```
+
 ```{r}
 # compute pairs
 # code is inspired by work from Chen, Glaeser, and Wessel
