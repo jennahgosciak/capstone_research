@@ -1,7 +1,7 @@
 ---
 title: "Downloads crime data from NYC Open Data"
 output: html_document
-author: Jennah Gosciak
+author: "Adelaide Currin, Haowei Wang, Jennah Gosciak, Yiping Zuo"
 date: "2022-11-07"
 ---
 

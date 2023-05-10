@@ -1,6 +1,6 @@
 ---
 title: "Descriptive Analysis of OZs using ACS Census Data"
-author: "Jennah Gosciak"
+author: "Adelaide Currin, Haowei Wang, Jennah Gosciak, Yiping Zuo"
 date: "11-18-2022"
 output:
   html_document:
@@ -9,7 +9,7 @@ output:
 
 Creates a buffer based on the average square footage of a NYC block.
 
-```{r}
+```{r, include=F}
 library(tidyverse)
 library(tidycensus)
 library(magrittr)
@@ -43,41 +43,9 @@ oz_bound <- oz_proj %>%
   st_union() %>%
   st_boundary()
 
-oz_buffer <- oz_bound %>%
-  st_buffer(dist = (264 * 2))
-
-oz_buffer_small <- oz_bound %>%
-  st_buffer(dist = 5)
-
-# look at 5 examples
-oz_buffer %>%
-  head(5) %>%
-  ggplot() +
-  geom_sf(color = "red") +
-  geom_sf(data = oz_bound %>%
-    head(5), color = "black") +
-  theme_void()
-
-oz_buffer %>%
-  st_union() %>%
-  ggplot() +
-  geom_sf(data = boros, color = "gray", fill = NA) +
-  geom_sf(color = "red") +
-  theme_void()
-
-ggsave("../03_output/oz_buffer.png")
-
 oz_bound %>%
   st_union() %>%
   st_write("../00_data/oz_bound.geojson", delete_dsn = TRUE)
-
-oz_buffer %>%
-  st_union() %>%
-  st_write("../00_data/oz_buffer.geojson", delete_dsn = TRUE)
-
-oz_buffer_small %>%
-  st_union() %>%
-  st_write("../00_data/oz_buffer_small.geojson", delete_dsn = TRUE)
 ```
 
 

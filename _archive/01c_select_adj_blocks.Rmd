@@ -1,6 +1,6 @@
 ---
 title: "Descriptive Analysis of OZs using ACS Census Data"
-author: "Jennah Gosciak"
+author: "Adelaide Currin, Haowei Wang, Jennah Gosciak, Yiping Zuo"
 date: "11-18-2022"
 output:
   html_document:
