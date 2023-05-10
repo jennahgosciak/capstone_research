@@ -30,5 +30,6 @@ The Project Team:
   - [01d_select_adj_blocks.Rmd](02_programs/01d_select_adj_blocks.Rmd): selects adjacent Census blocks to the OZ boundary.
   - [02_spatial_join.Rmd](02_programs/02_spatial_join.Rmd): joins files together and performs a spatial join to identify the relevant Census block and tract ID numbers.
   - [03_report_figures.Rmd](02_programs/03_report_figures.Rmd): generates all report figures and tables to be included in our final write-up.
+  - [04_analysis.Rmd](02_programs/04_analysis.Rmd): runs all the regression analyses for the report.
 - 03_output: plots and table output
 - \_scratch: exploratory work outside the cleaning and analysis pipeline
