@@ -312,9 +312,6 @@ analysis_file_geom %>%
   st_write("../00_data/analysis_file_geom.geojson", delete_dsn = T)
 ```
 
-```{r}
-
-```
 
 
 
