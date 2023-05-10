@@ -1,0 +1,796 @@
+---
+title: "Report Figures"
+author: "Adelaide Currin, Haowei Wang, Jennah Gosciak, Yiping Zuo"
+date: "2022-12-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(sf)
+library(lubridate)
+library(zoo)
+library("lmtest")
+library("sandwich")
+library("wesanderson")
+```
+
+# Generates figures for each report
+
+* We will update this as the report figures change
+
+```{r, include=F}
+# download data
+ar_oz <- read_csv("../00_data/ar_oz.csv")
+
+cp_oz <- read_csv("../00_data/cp_oz.csv")
+
+st_oz <- read_csv("../00_data/st_oz.csv")
+
+ar_oz %>%
+  head()
+
+# load varlist
+acs_varlist <- readxl::read_excel("../00_data/acs_varlist.xlsx") %>%
+  filter(include == 1)
+acs_varlist
+
+acs_vars <- acs_varlist$variable
+names(acs_vars) <- acs_varlist$description
+
+constructs <- c("pct_white", "pct_higher_ed", "pct_rent", "pct_native_hc_covered", "pct_poverty", "minutes_commute_avg")
+urbanvars <- c("dec_score", "SE_Flag", "vacancyrate", "pctunder18", "pctover64")
+```
+
+```{r}
+# create month, date aggregation
+ar_oz <- ar_oz %>%
+  mutate(arrest_month_yr = as.Date(
+    str_c(month(arrest_date), 1, year(arrest_date), sep = "-"),
+    "%m-%d-%Y"
+  )) %>%
+  mutate(year = year(arrest_month_yr))
+
+cp_oz <- cp_oz %>%
+  mutate(cp_month_yr = as.Date(
+    str_c(month(cmplnt_fr_dt), 1, year(cmplnt_fr_dt), sep = "-"),
+    "%m-%d-%Y"
+  )) %>%
+  mutate(year = year(cp_month_yr))
+
+cp_oz <- cp_oz %>%
+  mutate(cp_month_yr = as.Date(
+    str_c(month(cmplnt_fr_dt), 1, year(cmplnt_fr_dt), sep = "-"),
+    "%m-%d-%Y"
+  )) %>%
+  mutate(year = year(cp_month_yr))
+
+st_oz <- st_oz %>%
+  mutate(
+    quarter = case_when(
+      month(occur_date) <= 3 ~ 1,
+      month(occur_date) <= 6 ~ 2,
+      month(occur_date) <= 9 ~ 3,
+      month(occur_date) <= 12 ~ 4
+    ),
+    st_month_yr = as.Date(
+      str_c(month(occur_date), 1, year(occur_date), sep = "-"),
+      "%m-%d-%Y"
+    ),
+    st_qrtr_yr = as.yearqtr(occur_date, format = "%Y-Q%q")
+  ) %>%
+  mutate(year = year(st_month_yr))
+```
+
+
+```{r}
+# average crime incidents by Census tract
+ar_oz %>%
+  filter(arrest_date < mdy("06-14-2018") & arrest_date >= mdy("06-14-2017")) %>%
+  group_by(GEOID, DESIGNATED, arrest_month_yr) %>%
+  summarize(n = n()) %>%
+  group_by(DESIGNATED) %>%
+  summarize(avg = mean(n))
+
+cp_oz %>%
+  filter(cmplnt_fr_dt < mdy("06-14-2018") & cmplnt_fr_dt >= mdy("06-14-2017")) %>%
+  group_by(GEOID, DESIGNATED, cp_month_yr) %>%
+  summarize(n = n()) %>%
+  group_by(DESIGNATED) %>%
+  summarize(avg = mean(n))
+```
+
+
+```{r}
+# average arrests by Census tract over time
+ar_oz %>%
+  # does this filter statement need to be here?
+  filter(!is.na(DESIGNATED)) %>%
+  group_by(GEOID, arrest_month_yr, DESIGNATED) %>%
+  summarize(n = n()) %>%
+  group_by(arrest_month_yr, DESIGNATED) %>%
+  summarize(avg = mean(n)) %>%
+  ggplot() +
+  geom_line(aes(x = arrest_month_yr, y = avg, color = if_else(DESIGNATED == TRUE,
+    "Selected", "Eligible"
+  ))) +
+  labs(
+    x = "Month/year", y = "Number of arrests",
+    title = "Average number of arrests per month\nand by census tract",
+    color = "Designation Status"
+  ) +
+  theme_classic()
+
+ggsave("../03_output/avg_arrests.png", height = 3, width = 4.5)
+
+# average violent crime arrests by Census tract over time
+ar_oz %>%
+  filter(violent_ellen == 1 & !is.na(DESIGNATED)) %>%
+  group_by(GEOID, arrest_month_yr, DESIGNATED, ) %>%
+  summarize(n = n()) %>%
+  group_by(arrest_month_yr, DESIGNATED) %>%
+  summarize(avg = mean(n)) %>%
+  ggplot() +
+  geom_line(aes(x = arrest_month_yr, y = avg, color = if_else(DESIGNATED == TRUE,
+    "Selected", "Eligible"
+  ))) +
+  labs(
+    x = "Month/year", y = "Number of arrests",
+    title = "Average number of violent crime arrests per month\nand by census tract",
+    color = "Designation Status"
+  ) +
+  theme_classic()
+
+ggsave("../03_output/avg_arrests_violent.png", height = 3, width = 4.5)
+
+# average property crime arrests by Census tract over time
+ar_oz %>%
+  filter(property_ellen == 1 & !is.na(DESIGNATED)) %>%
+  group_by(GEOID, arrest_month_yr, DESIGNATED, ) %>%
+  summarize(n = n()) %>%
+  group_by(arrest_month_yr, DESIGNATED) %>%
+  summarize(avg = mean(n)) %>%
+  ggplot() +
+  geom_line(aes(x = arrest_month_yr, y = avg, color = if_else(DESIGNATED == TRUE,
+    "Selected", "Eligible"
+  ))) +
+  labs(
+    x = "Month/year", y = "Number of arrests",
+    title = "Average number of property crime arrests per month\nand by census tract",
+    color = "Designation Status"
+  ) +
+  theme_classic()
+
+ggsave("../03_output/avg_arrests_prop.png", height = 3, width = 4.5)
+```
+
+```{r} 
+# average shootings by Census tract over time
+st_oz %>%
+  filter(!is.na(DESIGNATED)) %>%
+  group_by(GEOID, st_month_yr, DESIGNATED) %>%
+  summarize(n = n()) %>%
+  group_by(st_month_yr, DESIGNATED) %>%
+  summarize(avg = mean(n)) %>%
+  ggplot() +
+  geom_line(aes(x = st_month_yr, y = avg, color = if_else(DESIGNATED == TRUE,
+    "Selected", "Eligible"
+  ))) +
+  labs(
+    x = "Month/year", y = "Number of shootings",
+    title = "Average number of shootings per month\nand by census tract",
+    color = "Designation Status"
+  ) +
+  theme_classic()
+
+ggsave("../03_output/avg_shootings.png", height = 3, width = 4.5)
+
+st_oz %>%
+  filter(!is.na(DESIGNATED)) %>%
+  group_by(GEOID, st_qrtr_yr, DESIGNATED) %>%
+  summarize(n = n()) %>%
+  group_by(st_qrtr_yr, DESIGNATED) %>%
+  summarize(avg = mean(n)) %>%
+  ggplot() +
+  geom_line(aes(x = st_qrtr_yr, y = avg, color = if_else(DESIGNATED == TRUE,
+    "Selected", "Eligible"
+  ))) +
+  labs(
+    x = "Month/year", y = "Number of shootings",
+    title = "Average number of shootings per month\nand by census tract",
+    color = "Designation Status"
+  ) +
+  theme_classic() +
+  scale_x_yearqtr(format = "%Y-Q%q")
+```
+
+```{r}
+# average complaints by Census tract over time
+cp_oz %>%
+  filter(!is.na(DESIGNATED)) %>%
+  group_by(GEOID, cp_month_yr, DESIGNATED) %>%
+  summarize(n = n()) %>%
+  group_by(cp_month_yr, DESIGNATED) %>%
+  summarize(avg = mean(n)) %>%
+  ggplot() +
+  geom_line(aes(x = cp_month_yr, y = avg, color = if_else(DESIGNATED == TRUE,
+    "Selected", "Eligible"
+  ))) +
+  labs(
+    x = "Month/year", y = "Number of complaints",
+    title = "Average number of complaints per month\nand by census tract",
+    color = "Designation Status"
+  ) +
+  theme_classic()
+
+ggsave("../03_output/avg_complaints.png", height = 3, width = 4.5)
+
+# average violent complaints by Census tract over time
+cp_oz %>%
+  filter(violent_ellen == 1 & !is.na(DESIGNATED)) %>%
+  group_by(GEOID, cp_month_yr, DESIGNATED) %>%
+  summarize(n = n()) %>%
+  group_by(cp_month_yr, DESIGNATED) %>%
+  summarize(avg = mean(n)) %>%
+  ggplot() +
+  geom_line(aes(x = cp_month_yr, y = avg, color = if_else(DESIGNATED == TRUE,
+    "Selected", "Eligible"
+  ))) +
+  labs(
+    x = "Month/year", y = "Number of complaints",
+    title = "Average number of violent crime complaints per month\nand by census tract",
+    color = "Designation Status"
+  ) +
+  theme_classic()
+
+ggsave("../03_output/avg_complainst_violent.png", height = 3, width = 4.5)
+
+# average property complaints by Census tract over time
+cp_oz %>%
+  filter(property_ellen == 1 & !is.na(DESIGNATED)) %>%
+  group_by(GEOID, cp_month_yr, DESIGNATED) %>%
+  summarize(n = n()) %>%
+  group_by(cp_month_yr, DESIGNATED) %>%
+  summarize(avg = mean(n)) %>%
+  ggplot() +
+  geom_line(aes(x = cp_month_yr, y = avg, color = if_else(DESIGNATED == TRUE,
+    "Selected", "Eligible"
+  ))) +
+  labs(
+    x = "Month/year", y = "Number of complaints",
+    title = "Average number of property crime complaints per month\nand by census tract",
+    color = "Designation Status"
+  ) +
+  theme_classic()
+
+ggsave("../03_output/avg_complaints_prop.png", height = 3, width = 4.5)
+```
+
+```{r}
+# attempt at adjusted differences for arrests
+ar_oz_adj_diff <- ar_oz %>%
+  # note: calculating this at the Census block level
+  group_by(
+    GEOID_b, arrest_month_yr, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
+    pct_poverty, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64, buffer
+  ) %>%
+  summarize(across(c(violent_ellen, property_ellen), ~ sum(., na.rm = T))) %>%
+  filter(!is.na(DESIGNATED) & buffer == 1) %>%
+  mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag))
+
+ar_oz_adj_diff %>%
+  select(DESIGNATED) %>%
+  unique()
+```
+
+```{r}
+# attempt at adjusted differences for complaints
+cp_oz_adj_diff <- cp_oz %>%
+  # note: calculating this at the Census block level
+  group_by(
+    GEOID_b, buffer, cp_month_yr, DESIGNATED, pct_white, pct_higher_ed, pct_rent, pct_native_hc_covered,
+    pct_poverty, dec_score, SE_Flag, vacancyrate, pctunder18, pctover64
+  ) %>%
+  filter(!is.na(DESIGNATED) & buffer == 1) %>%
+  summarize(across(c(violent_ellen, property_ellen), ~ sum(., na.rm = T))) %>%
+  mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag))
+
+nrow(cp_oz_adj_diff)
+```
+
+```{r}
+labs_ar <- c("Violent crime arrests", "Property crime arrests")
+outcomes <- c("violent_ellen", "property_ellen")
+
+labs_cp <- c("Violent crime complaints", "Property crime complaints")
+
+create_plots <- function(df, outcomes, labs, fname, date_var) {
+  # unadjusted plot
+  df %>%
+    rename_at(date_var, ~"date") %>%
+    ungroup() %>%
+    pivot_longer(c(violent_ellen, property_ellen)) %>%
+    mutate(
+      name = factor(labs[match(name, outcomes)],
+        levels = labs,
+        ordered = T
+      ),
+      desig_lab = factor(if_else(DESIGNATED == T, "Designated", "Eligible, not designated"),
+        levels = c("Designated", "Eligible, not designated"),
+        ordered = T
+      )
+    ) %>%
+    ggplot() +
+    stat_summary(aes(date, value, color = desig_lab),
+      fun = "mean", geom = "line"
+    ) +
+    geom_vline(
+      xintercept = mdy("04-01-2018"), linetype = "dashed",
+      color = "gray"
+    ) +
+    theme_classic() +
+    labs(
+      y = "Number of incidents per block",
+      x = "Month-year",
+      color = "Designation"
+    ) +
+    scale_color_manual(values = wes_palette("Darjeeling1")) +
+    facet_wrap(~name, scales = "free")
+
+  ggsave(str_glue("../03_output/unadjusted_{fname}.png"), height = 6, width = 10)
+}
+
+create_plots(ar_oz_adj_diff, outcomes, labs_ar, "arrests", "arrest_month_yr")
+create_plots(cp_oz_adj_diff, outcomes, labs_cp, "complaints", "cp_month_yr")
+```
+```{r}
+outcomes <- c("resid_violent", "resid_property")
+
+create_adjusted_plots <- function(df, outcomes, labs, fname, date_var) {
+  # ideal model
+  lmviolent <- lm(violent_ellen ~ pct_white + pct_higher_ed + pct_rent +
+    pct_native_hc_covered + pct_poverty + dec_score + SE_Flag + vacancyrate + pctunder18 +
+    pctover64, df)
+
+  lmproperty <- lm(property_ellen ~ pct_white + pct_higher_ed + pct_rent +
+    pct_native_hc_covered + pct_poverty + dec_score + SE_Flag + vacancyrate + pctunder18 + pctover64, df)
+  modeldata <- cbind(df[rownames(lmviolent$model), ],
+    "resid_violent" = lmviolent$residuals,
+    "resid_property" = lmproperty$residuals
+  ) %>%
+    pivot_longer(c("resid_violent", "resid_property"))
+
+  modeldata %>%
+    nrow() %>%
+    print()
+
+  plot <- modeldata %>%
+    ungroup() %>%
+    rename_at(date_var, ~"date") %>%
+    mutate(
+      name = factor(labs[match(name, outcomes)],
+        levels = labs,
+        ordered = T
+      ),
+      desig_lab = factor(if_else(DESIGNATED == T, "Designated", "Eligible, not designated"),
+        levels = c("Designated", "Eligible, not designated"),
+        ordered = T
+      )
+    ) %>%
+    ggplot() +
+    stat_summary(aes(date, value, color = desig_lab),
+      fun = "mean", geom = "line"
+    ) +
+    geom_vline(
+      xintercept = mdy("04-01-2018"), linetype = "dashed",
+      color = "gray"
+    ) +
+    ylim(-0.3, .3) +
+    scale_color_manual(values = wes_palette("Darjeeling1")) +
+    theme_classic() +
+    labs(
+      y = "Residual of incidents per block",
+      x = "Month-year",
+      color = "Designation"
+    ) +
+    facet_wrap(~name, scales = "free")
+
+  ggsave(str_glue("../03_output/adjusted_{fname}.png"), height = 6, width = 10)
+}
+
+create_adjusted_plots(ar_oz_adj_diff, outcomes, labs_ar, "arrests", "arrest_month_yr")
+create_adjusted_plots(cp_oz_adj_diff, outcomes, labs_cp, "complaints", "cp_month_yr")
+```
+## Descriptive stats and missing rates
+
+```{r}
+acs_oz <- read_csv("../00_data/acs_oz.csv")
+
+acs_oz_bg <- read_csv("../00_data/acs_bg.csv")
+
+acs_oz %>%
+  group_by(DESIGNATED) %>%
+  summarize(n = n()) %>%
+  ungroup() %>%
+  mutate(sum = cumsum(n))
+
+acs_oz %>%
+  filter(LIC == T) %>%
+  group_by(DESIGNATED, LIC) %>%
+  summarize(n = n()) %>%
+  ungroup() %>%
+  mutate(
+    sum = cumsum(n),
+    per_total = n / 1448,
+    sum_per_total = sum / 1448
+  )
+```
+
+```{r}
+acs_oz %>%
+  as.data.frame() %>%
+  filter(!is.na(DESIGNATED)) %>%
+  group_by(DESIGNATED) %>%
+  # create missing flag
+  # duplicate at the block group level
+  # summary statistics of missingness
+  # really only care about the ones that are close to the boundary
+  summarize(across(population:pctover64, mean, na.rm = T)) %>%
+  pivot_longer(cols = c(population:pctover64)) %>%
+  mutate(
+    value = round(value, 2),
+    designated_desc = if_else(DESIGNATED == TRUE, "designated", "eligible")
+  ) %>%
+  pivot_wider(id_cols = "name", names_from = "designated_desc", values_from = "value") %>%
+  select(name, designated, eligible) %>%
+  write_csv("../03_output/desc_means.csv", na = "")
+
+acs_oz %>%
+  as.data.frame() %>%
+  filter(!is.na(DESIGNATED)) %>%
+  group_by(DESIGNATED) %>%
+  # create missing flag
+  # duplicate at the block group level
+  # summary statistics of missingness
+  # really only care about the ones that are close to the boundary
+  summarize(across(population:pct_poverty, ~ sum(!is.na(.)))) %>%
+  pivot_longer(cols = c(population:pct_poverty)) %>%
+  mutate(
+    value = round(value, 2),
+    designated_desc = if_else(DESIGNATED == TRUE, "designated", "eligible")
+  ) %>%
+  pivot_wider(id_cols = "name", names_from = "designated_desc", values_from = "value") %>%
+  select(name, designated, eligible) %>%
+  summarize(
+    designated = max(designated),
+    eligible = max(eligible)
+  )
+```
+
+```{r}
+acs_oz %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED) %>%
+  # create missing flag
+  # duplicate at the block group level
+  # summary statistics of missingness
+  # really only care about the ones that are close to the boundary
+  mutate(across(population:pct_poverty, ~ if_else(is.na(.), 1, 0))) %>%
+  summarize(across(population:pct_poverty, mean, na.rm = T)) %>%
+  pivot_longer(cols = c(population:pct_poverty)) %>%
+  mutate(
+    value = round(value, 2),
+    designated_desc = if_else(DESIGNATED == TRUE, "designated", "eligible")
+  ) %>%
+  pivot_wider(id_cols = "name", names_from = "designated_desc", values_from = "value") %>%
+  select(name, designated, eligible) %>%
+  write_csv("../03_output/missing_rates.csv", na = "")
+```
+
+```{r}
+
+acs_oz_bg %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED) %>%
+  # create missing flag
+  # duplicate at the block group level
+  # summary statistics of missingness
+  # really only care about the ones that are close to the boundary
+  summarize(across(population:pct_poverty, mean, na.rm = T)) %>%
+  pivot_longer(cols = c(population:pct_poverty)) %>%
+  mutate(
+    value = round(value, 2),
+    designated_desc = if_else(DESIGNATED == TRUE, "designated", "eligible")
+  ) %>%
+  pivot_wider(id_cols = "name", names_from = "designated_desc", values_from = "value") %>%
+  select(name, designated, eligible) %>%
+  write_csv("../03_output/desc_means_bg.csv", na = "")
+
+acs_oz_bg %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED) %>%
+  # create missing flag
+  # duplicate at the block group level
+  # summary statistics of missingness
+  # really only care about the ones that are close to the boundary
+  mutate(across(population:pct_poverty, ~ if_else(is.na(.), 1, 0))) %>%
+  summarize(across(population:pct_poverty, mean, na.rm = T)) %>%
+  pivot_longer(cols = c(population:pct_poverty)) %>%
+  mutate(
+    value = round(value, 2),
+    designated_desc = if_else(DESIGNATED == TRUE, "designated", "eligible")
+  ) %>%
+  pivot_wider(id_cols = "name", names_from = "designated_desc", values_from = "value") %>%
+  select(name, designated, eligible) %>%
+  write_csv("../03_output/missing_rates_bg.csv", na = "")
+```
+
+## Balance testing
+
+```{r}
+# do significance testing
+acs_oz_clean <- acs_oz %>%
+  as.data.frame() %>%
+  mutate(treatment = if_else(DESIGNATED == TRUE, 1, 0)) %>%
+  assertr::verify(!is.na(DESIGNATED)) %>%
+  mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag))
+
+cb_adj_acs_tract <- read_csv("../00_data/cb_adj_acs.csv") %>%
+  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>%
+  filter(population > 0 & !is.na(population)) %>%
+  mutate(SE_Flag = if_else(is.na(SE_Flag), 0, SE_Flag))
+cb_adj_acs_tract
+
+cb_adj_acs_bg <- read_csv("../00_data/cb_adj_acs_bg.csv") %>%
+  mutate(treatment = if_else(DESIGNATED == T, 1, 0)) %>%
+  filter(population > 0 & !is.na(population))
+cb_adj_acs_bg
+```
+
+```{r}
+test_baseline_significance <- function(outcome, print = FALSE,
+                                       data) {
+  print(outcome)
+  mod <- lm(paste0(outcome, " ~ treatment"), data = data)
+
+  if (print == TRUE) {
+    summary(mod) %>%
+      print()
+  }
+
+  vals <- coeftest(mod, vcov = vcovHC(mod, type = "HC0"))
+  print(vals)
+  int <- vals[1, 1]
+  treat_est <- vals[2, 1]
+  treat_se <- vals[2, 2]
+  treat_pval <- vals[2, 4]
+  asterisk <- case_when(
+    treat_pval < 0.01 ~ "***",
+    treat_pval < 0.05 ~ "**",
+    treat_pval < 0.1 ~ "*",
+    TRUE ~ NA_character_
+  )
+
+  if (str_detect(outcome, "pct") | str_detect(outcome, "rate") |
+    str_detect(outcome, "SE_Flag")) {
+    treat_est <- treat_est * 100
+    int <- int * 100
+    treat_se <- treat_se * 100
+  }
+  treat_obs <- data %>%
+    filter(treatment == 1) %>%
+    nrow()
+  comp_obs <- data %>%
+    filter(treatment == 0) %>%
+    nrow()
+  data.frame(
+    "var" = outcome,
+    "mean_1" = round(int + treat_est, 2),
+    "mean_0" = round(int, 2),
+    "difference" = if_else(!is.na(asterisk), paste0(round(treat_est, 2), asterisk),
+      as.character(round(treat_est, 2))
+    ),
+    "se" = round(treat_se, 2),
+    "pval" = round(treat_pval, 4),
+    "N" = nobs(mod),
+    "treat_n" = treat_obs,
+    "comp_n" = comp_obs
+  )
+}
+```
+
+```{r}
+# adjacent tracts
+diff_results_adj <- map_dfr(c(
+  names(acs_vars),
+  constructs, urbanvars
+), ~ test_baseline_significance(., data = cb_adj_acs_tract %>%
+  filter(DESIGNATED == TRUE | (DESIGNATED == F & LIC == T))))
+
+diff_results_adj
+diff_results_adj %>%
+  write_csv("../03_output/balance_tests_adj_tracts.csv")
+```
+
+```{r}
+# adjacent block groups
+diff_results_adj_bg <- map_dfr(c(
+  c("population", "pct_white", "pct_higher_ed")
+), ~ test_baseline_significance(., data = cb_adj_acs_bg %>%
+  filter(DESIGNATED == TRUE | (DESIGNATED == F & LIC == T))))
+
+diff_results_adj_bg
+diff_results_adj_bg %>%
+  write_csv("../03_output/balance_tests_adj_bg.csv")
+```
+
+```{r}
+diff_results_adj_bg <- map_dfr(c(
+  "population", "white_population", "employed_population",
+  "pct_white", "pct_higher_ed"
+), ~ test_baseline_significance(., data = cb_adj_acs_bg %>%
+  filter(DESIGNATED == TRUE | (DESIGNATED == F & LIC == T))))
+diff_results_adj_bg
+
+cb_adj_acs_bg %>%
+  ggplot() +
+  geom_histogram(aes(pct_white, fill = factor(DESIGNATED), group = factor(DESIGNATED)), alpha = 0.5) +
+  theme_classic() +
+  labs(fill = "Selected")
+```
+
+```{r}
+diff_results <- map_dfr(c(
+  names(acs_vars),
+  constructs, urbanvars
+), ~ test_baseline_significance(., data = acs_oz_clean))
+
+diff_results
+diff_results %>%
+  write_csv("../03_output/balance_tests_norestrictions.csv")
+```
+
+```{r}
+diff_results_subsample <- map_dfr(c(
+  names(acs_vars),
+  constructs, urbanvars
+), ~ test_baseline_significance(.,
+  data = acs_oz_clean %>%
+    filter(DESIGNATED == T |
+      (DESIGNATED == F & LIC == T))
+))
+
+diff_results_subsample %>%
+  write_csv("../03_output/balance_tests.csv")
+
+diff_results_subsample
+acs_oz_clean %>%
+  filter(DESIGNATED == T |
+    (DESIGNATED == F & LIC == T)) %>%
+  group_by(DESIGNATED) %>%
+  summarize(n = n())
+```
+```{r}
+ar_oz %>%
+  filter(distance_boundary > 20000)
+```
+
+```{r}
+# histograms of crime
+ar_oz %>%
+  filter(DESIGNATED == T | (DESIGNATED == F & LIC == T)) %>%
+  mutate(post = if_else(arrest_date > mdy("04-20-2018"), "(1) Post", "(0) Pre")) %>%
+  mutate(distance_boundary = if_else(DESIGNATED == F, -1 * distance_boundary, distance_boundary)) %>%
+  ggplot() +
+  geom_histogram(aes(distance_boundary), bins = 70) +
+  geom_vline(xintercept = 0, color = "red") +
+  theme_classic() +
+  facet_wrap(~post, nrow = 1, scales = "free_y") +
+  labs(y = "Number of arrest incidents")
+
+ggsave("../03_output/distance_his_ar.png")
+
+st_oz %>%
+  filter(DESIGNATED == T | (DESIGNATED == F & LIC == T)) %>%
+  mutate(post = if_else(occur_date > mdy("04-20-2018"), "(1) Post", "(0) Pre")) %>%
+  mutate(distance_boundary = if_else(DESIGNATED == F, -1 * distance_boundary, distance_boundary)) %>%
+  ggplot() +
+  geom_histogram(aes(distance_boundary), bins = 70) +
+  geom_vline(xintercept = 0, color = "red") +
+  theme_classic() +
+  facet_wrap(~post, nrow = 1, scales = "free_y") +
+  labs(y = "Number of shooting incidents")
+
+ggsave("../03_output/distance_his_st.png")
+
+cp_oz %>%
+  filter(DESIGNATED == T | (DESIGNATED == F & LIC == T)) %>%
+  mutate(post = if_else(cmplnt_fr_dt > mdy("04-20-2018"), "(1) Post", "(0) Pre")) %>%
+  mutate(distance_boundary = if_else(DESIGNATED == F, -1 * distance_boundary, distance_boundary)) %>%
+  ggplot() +
+  geom_histogram(aes(distance_boundary), bins = 70) +
+  geom_vline(xintercept = 0, color = "red") +
+  theme_classic() +
+  facet_wrap(~post, nrow = 1, scales = "free_y") +
+  labs(y = "Number of complaint incidents")
+
+ggsave("../03_output/distance_his_cp.png")
+```
+
+```{r}
+# histograms of violent/prop crime
+ar_oz_plots <- ar_oz %>%
+  filter((DESIGNATED == T | (DESIGNATED == F & LIC == T))) %>%
+  mutate(post = factor(if_else(arrest_date > mdy("04-20-2018"), "After April 20, 2018 (Post period)", "Before April 20, 2018 (Pre period)"),
+    levels = c("Before April 20, 2018 (Pre period)", "After April 20, 2018 (Post period)"),
+    ordered = T
+  ))
+
+cp_oz_plots <- cp_oz %>%
+  filter((DESIGNATED == T | (DESIGNATED == F & LIC == T))) %>%
+  mutate(post = factor(if_else(cmplnt_fr_dt > mdy("04-20-2018"), "After April 20, 2018 (Post period)", "Before April 20, 2018 (Pre period)"),
+    levels = c("Before April 20, 2018 (Pre period)", "After April 20, 2018 (Post period)"),
+    ordered = T
+  ))
+
+ar_oz_plots %>%
+  filter(violent_ellen == 1) %>%
+  mutate(distance_boundary = if_else(DESIGNATED == F, -1 * distance_boundary, distance_boundary)) %>%
+  ggplot() +
+  geom_histogram(aes(distance_boundary), bins = 70) +
+  geom_vline(xintercept = 0, color = "red") +
+  theme_classic() +
+  facet_wrap(~post, nrow = 1, scales = "free_y") +
+  labs(
+    y = "Number of violent crime arrests",
+    x = "Distance from the boundary (feet)"
+  )
+
+ggsave("../03_output/distance_his_ar_violent.png")
+
+ar_oz_plots %>%
+  filter(property_ellen == 1) %>%
+  mutate(distance_boundary = if_else(DESIGNATED == F, -1 * distance_boundary, distance_boundary)) %>%
+  ggplot() +
+  geom_histogram(aes(distance_boundary), bins = 70) +
+  geom_vline(xintercept = 0, color = "red") +
+  theme_classic() +
+  facet_wrap(~post, nrow = 1, scales = "free_y") +
+  labs(
+    y = "Number of property crime arrests",
+    x = "Distance from the boundary (feet)"
+  )
+
+ggsave("../03_output/distance_his_ar_prop.png")
+
+cp_oz_plots %>%
+  filter(violent_ellen == 1) %>%
+  mutate(distance_boundary = if_else(DESIGNATED == F, -1 * distance_boundary, distance_boundary)) %>%
+  ggplot() +
+  geom_histogram(aes(distance_boundary), bins = 70) +
+  geom_vline(xintercept = 0, color = "red") +
+  theme_classic() +
+  facet_wrap(~post, nrow = 1, scales = "free_y") +
+  labs(
+    y = "Number of violent crime complaints",
+    x = "Distance from the boundary (feet)"
+  )
+
+ggsave("../03_output/distance_his_cp_violent.png")
+
+cp_oz_plots %>%
+  filter(property_ellen == 1) %>%
+  mutate(distance_boundary = if_else(DESIGNATED == F, -1 * distance_boundary, distance_boundary)) %>%
+  ggplot() +
+  geom_histogram(aes(distance_boundary), bins = 70) +
+  geom_vline(xintercept = 0, color = "red") +
+  theme_classic() +
+  facet_wrap(~post, nrow = 1, scales = "free_y") +
+  labs(
+    y = "Number of property crime complaints",
+    x = "Distance from the boundary (feet)"
+  )
+
+ggsave("../03_output/distance_his_cp_prop.png")
+```
+

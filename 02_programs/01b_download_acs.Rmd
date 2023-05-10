@@ -1,6 +1,6 @@
 ---
 title: "Descriptive Analysis of OZs using ACS Census Data"
-author: "Jennah Gosciak"
+author: "Adelaide Currin, Haowei Wang, Jennah Gosciak, Yiping Zuo"
 date: "11-18-2022"
 output:
   html_document:
@@ -9,7 +9,7 @@ output:
 
 This notebook generates some initial descriptives of selected and eligible OZ tracts in NYC using data from the American Community Survey.
 
-```{r}
+```{r, include=F}
 library(tidyverse)
 library(tidycensus)
 library(magrittr)
@@ -18,6 +18,7 @@ library(wesanderson) # for colors :)
 library("lmtest")
 library("sandwich")
 library(readxl)
+library(assertr)
 ```
 ```{r}
 # load ozs for nyc
@@ -28,12 +29,20 @@ oz %>%
   nrow() %>%
   equals(0) %>%
   stopifnot()
+
+oz %>%
+  as.data.frame() %>%
+  group_by(DESIGNATED, LIC) %>%
+  summarize(n = n())
+
+# oz <- oz %>%
+## IMPT: filter out nonLICs from the comparison group
+## filter(DESIGNATED == "True" | (DESIGNATED == "False" & LIC == "True"))
 ```
 
 ```{r}
 # load varlist
-acs_varlist <- readxl::read_excel("../00_data/acs_varlist.xlsx") %>%
-  filter(include == 1)
+acs_varlist <- readxl::read_excel("../00_data/acs_varlist.xlsx")
 acs_varlist
 
 acs_vars <- acs_varlist$variable
@@ -86,6 +95,13 @@ acs_nyc_wide_bg %>%
 acs_oz <- oz %>%
   full_join(acs_nyc_wide, by = "GEOID")
 
+acs_nyc_wide %>%
+  anti_join(oz %>%
+    as.data.frame(), ., by = "GEOID") %>%
+  nrow() %>%
+  equals(0) %>%
+  stopifnot()
+
 acs_oz_bg <- acs_nyc_wide_bg %>%
   rename(GEOID_bg = GEOID) %>%
   mutate(GEOID_tract = substr(GEOID_bg, 1, 11)) %>%
@@ -123,12 +139,6 @@ acs_oz %>%
     designated_desc = if_else(DESIGNATED == "True", "designated", "eligible")
   ) %>%
   pivot_wider(id_cols = "name", names_from = "designated_desc", values_from = "value")
-```
-
-```{r}
-acs_oz %>% 
-  filter(GEOID == 36005001900	) %>% 
-  as.data.frame()
 ```
 
 ```{r}

@@ -1,0 +1,21 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(fs)
+library(arsenal)
+```
+
+
+```{r}
+# load data
+analysis_file <- read_csv("../00_data/analysis_file.csv")
+analysis_file_ad <- read_csv("../00_data/analysis_file_ad.csv")
+
+comparedf(analysis_file, analysis_file_ad, by = "GEOID_b") %>% 
+  summary()
+```
+

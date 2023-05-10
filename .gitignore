@@ -2,9 +2,12 @@
 *.csv
 *.json
 *.geojson
-/00_data/
+!/00_data/acs_varlist.xlsx
+!/00_data/urbaninstitute_tractlevelozanalysis_update01142021.xlsx
+/00_data
 03_output/
 /04_qgis/
+
 
 # History files
 .Rhistory
