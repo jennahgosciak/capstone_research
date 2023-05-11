@@ -42,12 +42,6 @@ analysis_file <- read_csv("../00_data/analysis_file.csv") %>%
     TRUE ~ NA_real_
   ))
 
-analysis_file %>%
-  mutate(GEOID = as.character(GEOID)) %>%
-  left_join(oz, by = "GEOID") %>%
-  distinct(DESIGNATED, LIC, treatment, status, GEOID) %>%
-  group_by(DESIGNATED, LIC, treatment, status) %>%
-  summarize(n = n())
 ```
 
 ```{r}
@@ -290,7 +284,7 @@ bequiv %>%
 ```
 
 ```{r}
-# balance test data
+# balance test data paired
 bequiv <- map_dfr(
   cross2(
     constructs,
@@ -341,7 +335,7 @@ run_model_set <- function(outcome_data, running_var, outcomes, p, covs, c=0) {
     )))
 }
 
-run_model_set_cluster <- function(outcome_data, running_var, outcomes, p, covs, cluster) {
+run_model_set_cluster <- function(outcome_data, running_var, outcomes, p, covs, c=0, cluster) {
   # vector to drop missing covariates
   keep_cov <- covs %>%
     is.na() %>%
@@ -356,11 +350,11 @@ run_model_set_cluster <- function(outcome_data, running_var, outcomes, p, covs, 
 
   return(map2_dfr(
     outcome_data, outcomes,
-    ~ tidy.rdrobust(.x, running_var, .y, p = p, cluster = cluster)
+    ~ tidy.rdrobust(.x, running_var, .y, p = p, c = c, cluster = cluster)
   ) %>%
     bind_rows(map2_dfr(
       outcome_data_cov, outcomes,
-      ~ tidy.rdrobust(.x, running_var_cov, .y, p = p, covs = covs, cluster = censustracts_cov)
+      ~ tidy.rdrobust(.x, running_var_cov, .y, p = p, covs = covs, c = c, cluster = censustracts_cov)
     )))
 }
 
@@ -653,12 +647,12 @@ output_fe %>%
 
 ```{r}
 output <- map_dfr(
-  c(-1000, -600, -200, 200),
-  ~ run_model_set(outcome_data_ar, running_var, outcomes_ar, p = 4, c = ., covariates)
+  c(-1056, -792, -528, -264),
+  ~ run_model_set_cluster(outcome_data_ar, running_var, outcomes_ar, p = 4, c = ., covariates, censustracts)
 ) %>%
   bind_rows(map_dfr(
-     c(-1000, -600, -200, 200),
-    ~ run_model_set(outcome_data_cp, running_var, outcomes_cp, p = 4, c = ., covariates)
+     c(-1056),
+    ~ run_model_set_cluster(outcome_data_cp, running_var, outcomes_cp, p = 4, c = ., covariates, censustracts)
   ))
 
 output <- output %>%
@@ -692,7 +686,27 @@ output %>%
     values_from = "coef_form"
   ) %>%
   select(c("quarter", "order", "covs"), matches("Robust")) %>%
-  select(c("quarter", "order", "covs"), ends_with("250"), ends_with("500"), ends_with("750"), ends_with("1000")) %>%
+  select(c("quarter", "order", "covs"), ends_with("-1056")) %>%
+  select(c("quarter", "order", "covs"), matches("property"), matches("violent")) %>%
+  write_csv(str_glue("../03_output/placebo_form_{Sys.Date()}{file_suffix}.csv")) 
+
+output %>%
+  filter(winsorize == "winsorize") %>%
+  mutate(
+    estimate_form = case_when(
+      p.value < 0.01 ~ paste0(round(estimate, 2), "***"),
+      p.value < 0.05 ~ paste0(round(estimate, 2), "**"),
+      p.value < 0.1 ~ paste0(round(estimate, 2), "*"),
+      TRUE ~ paste0(round(estimate, 2))
+    ),
+    coef_form = str_c(estimate_form, "\n(", round(std.error, 2), ")")
+  ) %>%
+  pivot_wider(
+    id_cols = c("quarter", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint", "cutoff"),
+    values_from = "coef_form"
+  ) %>%
+  select(c("quarter", "order", "covs"), matches("Robust")) %>%
+  select(c("quarter", "order", "covs"), ends_with("-264"), ends_with("-528"), ends_with("-792"), ends_with("-1056")) %>%
   select(c("quarter", "order", "covs"), matches("property"), matches("violent")) %>%
   write_csv(str_glue("../03_output/placebo_form_{Sys.Date()}{file_suffix}.csv"))
 ```
