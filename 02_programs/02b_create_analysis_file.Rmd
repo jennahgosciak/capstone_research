@@ -223,12 +223,11 @@ analysis_file <- full_join(ar_oz3, cp_oz3,
   mutate(across(starts_with("violent_ellen"), ~ if_else(is.na(.), 0, .))) %>%
   mutate(across(starts_with("property_ellen"), ~ if_else(is.na(.), 0, .))) %>%
   # make distance negative if inside the boundary
-  mutate(centroid_distance_boundary = if_else(status == "Selected", centroid_distance_boundary, -1 * centroid_distance_boundary))
+  mutate(centroid_distance_boundary = if_else(status == "Selected", 
+                                              centroid_distance_boundary, -1 * centroid_distance_boundary))
 
 eeptools::isid(analysis_file, "GEOID_b") %>%
   stopifnot()
-
-analysis_file
 ```
 ```{r}
 # file for running with fixed effects
@@ -242,11 +241,30 @@ analysis_file_fe <- full_join(ar_oz3, cp_oz3,
     quarter < 8 ~ "year1",
     TRUE ~ NA_character_
   )) %>%
+  mutate(
+    quarter2 = case_when(quarter %in% c(-4, 0, 4) ~ 1,
+                        quarter %in% c(-3, 1, 5) ~ 2,
+                        quarter %in% c(-2, 2, 6) ~ 3,
+                        quarter %in% c(-1, 3, 7) ~ 4)
+  ) %>% 
+  filter(!is.na(quarter2))
+
+grid <- expand.grid(GEOID_b = unique(analysis_file$GEOID_b), 
+                    year = c("year-1", "year0", "year1"),
+            quarter2 = c(1:4)) 
+```
+
+```{r}
+analysis_file_fe <- analysis_file_fe %>%
+  select(-quarter, GEOID) %>% 
+  #filter(!is.na(quarter2) & !is.na(GEOID)) %>%
+  full_join(grid, by = c("GEOID_b", "year", "quarter2"))  %>% 
   pivot_wider(
-    id_cols = c(GEOID_b, GEOID, quarter),
+    id_cols = c(GEOID_b, quarter2),
     names_from = year,
     values_from = c(starts_with("violent_ellen"), starts_with("property_ellen"))
-  ) %>%
+  ) %>% 
+  left_join(distinct(analysis_file, GEOID_b, GEOID), by = "GEOID_b")%>%
   mutate(across(`violent_ellen_ar_year-1`:property_ellen_winsorize_cp_year1, ~ if_else(is.na(.), 0, .))) %>%
   full_join(centroid_distances, by = "GEOID_b") %>%
   left_join(acs_oz_vars, by = "GEOID") %>%
@@ -255,10 +273,19 @@ analysis_file_fe <- full_join(ar_oz3, cp_oz3,
   # make distance negative if outside the boundary
   mutate(centroid_distance_boundary = if_else(status == "Selected", centroid_distance_boundary,
     -1 * centroid_distance_boundary
-  ))
+  )) %>%
+  filter(!is.na(quarter2) & !is.na(GEOID_b))
 
 analysis_file_fe
 
+analysis_file_fe %>% 
+  group_by(GEOID_b) %>% 
+  filter(n() != 4) %>% 
+  nrow() %>% 
+  magrittr::equals(0)
+```
+
+```{r}
 # analysis file with geom data
 
 cb <- st_read("https://data.cityofnewyork.us/resource/twhy-dzjp.geojson?$limit=1000000") %>%
@@ -277,7 +304,6 @@ cb <- st_read("https://data.cityofnewyork.us/resource/twhy-dzjp.geojson?$limit=1
   mutate(geometry = st_make_valid(geometry)) %>%
   mutate(GEOID_b = as.numeric(GEOID_b)) %>%
   mutate(GEOID = as.numeric(GEOID))
-
 
 analysis_file_geom <- left_join(analysis_file, cb, "GEOID_b" = "GEOID_b", "GEOID" = "GEOID")
 ```

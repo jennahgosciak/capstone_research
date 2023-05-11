@@ -62,11 +62,15 @@ analysis_file %>%
 ```{r}
 analysis_file_fe <- read_csv("../00_data/analysis_file_fe.csv") %>%
   mutate(
-    quarter1 = if_else(quarter %in% c(-4, 0, 4), 1, 0),
-    quarter2 = if_else(quarter %in% c(-3, 1, 5), 1, 0),
-    quarter3 = if_else(quarter %in% c(-2, 2, 6), 1, 0),
-    quarter4 = if_else(quarter %in% c(-1, 3, 7), 1, 0)
+    quarter_1 = if_else(quarter2 == 1, 1, 0),
+    quarter_2 = if_else(quarter2 == 2, 1, 0),
+    quarter_3 = if_else(quarter2 == 3, 1, 0),
+    quarter_4 = if_else(quarter2 == 4, 1, 0)
   )
+
+analysis_file_fe %>% 
+  group_by(GEOID_b) %>% 
+  summarize(n = n())
 
 if (EXCLUDE_INELIGIBLE == T) {
   analysis_file <- analysis_file %>%
@@ -469,9 +473,11 @@ output %>%
     names_from = c("crime_type", "term", "arrest_or_complaint"),
     values_from = "coef_form"
   ) %>%
-  select(c("quarter", "order", "covs"), matches("Conventional"), matches("Bias"), matches("Robust")) %>%
-  select(c("quarter", "order", "covs"), matches("property"), matches("violent")) %>%
-  write_csv(str_glue("../03_output/results_{Sys.Date()}{file_suffix}.csv"))
+  select(c("quarter", "order", "covs"), matches("Conventional"), 
+         matches("Bias"), matches("Robust")) %>%
+  select(c("quarter", "order", "covs"), 
+         matches("property"), matches("violent")) %>%
+  write_csv(str_glue("../03_output/results_form_{Sys.Date()}{file_suffix}.csv"))
 ```
 
 ## THEORY-DRIVEN BANDWIDTHS
@@ -623,7 +629,7 @@ outcomes_ar <- map(
 
 running_var <- analysis_file_fe[["centroid_distance_boundary"]]
 outcome_data_ar <- analysis_file_fe[, outcomes_ar]
-covariates <- analysis_file_fe[, c(constructs, str_c("quarter", 1:3))]
+covariates <- analysis_file_fe[, c(constructs, str_c("quarter_", 1:3))]
 censustracts <- analysis_file_fe[["GEOID"]]
 
 outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"), ~ str_c(., c("year-1", "year0", "year1"))) %>%
@@ -631,31 +637,42 @@ outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp
 outcome_data_cp <- analysis_file_fe[, outcomes_cp]
 ```
 
-
 ```{r}
 output_fe <- map_dfr(
   c(1, 4),
-  ~ run_model_set_fe(outcome_data_ar, running_var, outcomes_ar, p = ., covariates)
+  ~ run_model_set_fe_cluster(outcome_data_ar, running_var, outcomes_ar, p = ., 
+                             covs=covariates, cluster=censustracts)
 ) %>%
   bind_rows(map_dfr(
     c(1, 4),
-    ~ run_model_set_fe(outcome_data_cp, running_var, outcomes_cp, p = ., covariates)
+    ~ run_model_set_fe_cluster(outcome_data_cp, running_var, outcomes_cp, p = ., 
+                               covs=covariates, cluster=censustracts)
   ))
 
 output_fe <- output_fe %>%
-  separate(outcome, c("crime_type", "measurement", "winsorize", "arrest_or_complaint", "year")) %>%
+  separate(outcome, c("crime_type", 
+                      "measurement", "winsorize", 
+                      "arrest_or_complaint", "year")) %>%
   select(-c(measurement)) %>%
-  select(crime_type, arrest_or_complaint, winsorize, term, order, covs, year, everything()) %>%
+  select(crime_type, arrest_or_complaint, winsorize, term, 
+         order, covs, year, everything()) %>%
   arrange(crime_type, arrest_or_complaint, term, order, covs, year)
 
 output_fe %>%
   write_csv(str_glue("../03_output/results_fe_{Sys.Date()}{file_suffix}.csv"))
 ```
+```{r}
+analysis_file_fe %>% 
+  group_by(GEOID_b) %>% 
+  filter(n() > 4) %>% 
+  mutate(GEOID_b = as.character(GEOID_b)) %>% 
+  arrange(GEOID_b, GEOID, quarter2)
+```
 
 ```{r}
 output_fe %>%
   filter(winsorize == "winsorize") %>%
-  mutate(nobs = rowSums(select(., c(nobs.left, nobs.right)), na.rm = T)) %>%
+  mutate(nobs = rowSums(select(., c(nobs.left, nobs.right))/4, na.rm = T)) %>%
   distinct(nobs, covs, crime_type)
 
 output_fe %>%
