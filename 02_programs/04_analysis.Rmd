@@ -429,11 +429,13 @@ outcome_data_cp <- analysis_file[, outcomes_cp]
 ```{r}
 output <- map_dfr(
   c(1, 4),
-  ~ run_model_set_cluster(outcome_data_ar, running_var, outcomes_ar, p = ., covariates, censustracts)
+  ~ run_model_set_cluster(outcome_data_ar, running_var, outcomes_ar, p = ., 
+                          covs =covariates, cluster= censustracts)
 ) %>%
   bind_rows(map_dfr(
     c(1, 4),
-    ~ run_model_set_cluster(outcome_data_cp, running_var, outcomes_cp, p = ., covariates, censustracts)
+    ~ run_model_set_cluster(outcome_data_cp, running_var, outcomes_cp, p = ., 
+                            covs =covariates, cluster= censustracts)
   ))
 
 output <- output %>%
@@ -540,92 +542,6 @@ bandwidththeory_all_formatted %>%
   write_csv(str_glue("../03_output/results_form_theory_{Sys.Date()}{file_suffix}.csv"))
 ```
 
-## FIXED EFFECTS
-```{r}
-# define data and outcomes
-outcomes_ar <- map(
-  c("violent_ellen_winsorize_ar_", "property_ellen_winsorize_ar_"),
-  ~ str_c(., c("year-1", "year0", "year1"))
-) %>%
-  unlist()
-
-running_var <- analysis_file_fe[["centroid_distance_boundary"]]
-outcome_data_ar <- analysis_file_fe[, outcomes_ar]
-covariates <- analysis_file_fe[, c(constructs, str_c("quarter", 1:3))]
-censustracts <- analysis_file_fe[["GEOID"]]
-
-outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"), ~ str_c(., c("year-1", "year0", "year1"))) %>%
-  unlist()
-outcome_data_cp <- analysis_file_fe[, outcomes_cp]
-```
-
-
-```{r}
-output_fe <- map_dfr(
-  c(1, 4),
-  ~ run_model_set_fe(outcome_data_ar, running_var, outcomes_ar, p = ., covariates)
-) %>%
-  bind_rows(map_dfr(
-    c(1, 4),
-    ~ run_model_set_fe(outcome_data_cp, running_var, outcomes_cp, p = ., covariates)
-  ))
-
-output_fe <- output_fe %>%
-  separate(outcome, c("crime_type", "measurement", "winsorize", "arrest_or_complaint", "year")) %>%
-  select(-c(measurement)) %>%
-  select(crime_type, arrest_or_complaint, winsorize, term, order, covs, year, everything()) %>%
-  arrange(crime_type, arrest_or_complaint, term, order, covs, year)
-
-output_fe %>%
-  write_csv(str_glue("../03_output/results_fe_{Sys.Date()}{file_suffix}.csv"))
-```
-
-```{r}
-output_fe <- map_dfr(
-  c(1, 4),
-  ~ run_model_set_fe_cluster(outcome_data_ar, running_var, outcomes_ar, p = ., covariates, censustracts)
-) %>%
-  bind_rows(map_dfr(
-    c(1, 4),
-    ~ run_model_set_fe_cluster(outcome_data_cp, running_var, outcomes_cp, p = ., covariates, censustracts)
-  ))
-
-output_fe <- output_fe %>%
-  separate(outcome, c("crime_type", "measurement", "winsorize", "arrest_or_complaint", "year")) %>%
-  select(-c(measurement)) %>%
-  select(crime_type, arrest_or_complaint, winsorize, term, order, covs, year, everything()) %>%
-  arrange(crime_type, arrest_or_complaint, term, order, covs, year)
-
-output_fe %>%
-  write_csv(str_glue("../03_output/results_fe_{Sys.Date()}{file_suffix}.csv"))
-```
-
-```{r}
-output_fe
-output_fe %>%
-  filter(winsorize == "winsorize") %>%
-  mutate(nobs = rowSums(select(., c(nobs.left, nobs.right)), na.rm = T)) %>%
-  distinct(nobs, covs, crime_type)
-
-output_fe %>%
-  filter(winsorize == "winsorize") %>%
-  mutate(
-    estimate_form = case_when(
-      p.value < 0.01 ~ paste0(round(estimate, 2), "***"),
-      p.value < 0.05 ~ paste0(round(estimate, 2), "**"),
-      p.value < 0.1 ~ paste0(round(estimate, 2), "*"),
-      TRUE ~ paste0(round(estimate, 2))
-    ),
-    coef_form = str_c(estimate_form, "\n(", round(std.error, 2), ")")
-  ) %>%
-  pivot_wider(
-    id_cols = c("year", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint"),
-    values_from = "coef_form"
-  ) %>%
-  select(c("year", "order", "covs"), matches("Conventional"), matches("Bias"), matches("Robust")) %>%
-  select(c("year", "order", "covs"), matches("property"), matches("violent")) %>%
-  write_csv(str_glue("../03_output/results_form__fe_{Sys.Date()}{file_suffix}.csv"))
-```
 
 ## PLACEBO TESTS GEOGRAPHIC
 
@@ -690,9 +606,76 @@ output %>%
     values_from = "coef_form"
   ) %>%
   select(c("quarter", "order", "covs"), matches("Robust")) %>%
-  select(c("quarter", "order", "covs"), ends_with("-264"), ends_with("-528"), ends_with("-792"), ends_with("-1056")) %>%
+  select(c("quarter", "order", "covs"), ends_with("-264"), 
+         ends_with("-528"), ends_with("-792"), ends_with("-1056")) %>%
   select(c("quarter", "order", "covs"), matches("property"), matches("violent")) %>%
   write_csv(str_glue("../03_output/placebo_form_{Sys.Date()}{file_suffix}.csv"))
+```
+
+## FIXED EFFECTS
+```{r}
+# define data and outcomes
+outcomes_ar <- map(
+  c("violent_ellen_winsorize_ar_", "property_ellen_winsorize_ar_"),
+  ~ str_c(., c("year-1", "year0", "year1"))
+) %>%
+  unlist()
+
+running_var <- analysis_file_fe[["centroid_distance_boundary"]]
+outcome_data_ar <- analysis_file_fe[, outcomes_ar]
+covariates <- analysis_file_fe[, c(constructs, str_c("quarter", 1:3))]
+censustracts <- analysis_file_fe[["GEOID"]]
+
+outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"), ~ str_c(., c("year-1", "year0", "year1"))) %>%
+  unlist()
+outcome_data_cp <- analysis_file_fe[, outcomes_cp]
+```
+
+
+```{r}
+output_fe <- map_dfr(
+  c(1, 4),
+  ~ run_model_set_fe(outcome_data_ar, running_var, outcomes_ar, p = ., covariates)
+) %>%
+  bind_rows(map_dfr(
+    c(1, 4),
+    ~ run_model_set_fe(outcome_data_cp, running_var, outcomes_cp, p = ., covariates)
+  ))
+
+output_fe <- output_fe %>%
+  separate(outcome, c("crime_type", "measurement", "winsorize", "arrest_or_complaint", "year")) %>%
+  select(-c(measurement)) %>%
+  select(crime_type, arrest_or_complaint, winsorize, term, order, covs, year, everything()) %>%
+  arrange(crime_type, arrest_or_complaint, term, order, covs, year)
+
+output_fe %>%
+  write_csv(str_glue("../03_output/results_fe_{Sys.Date()}{file_suffix}.csv"))
+```
+
+```{r}
+output_fe %>%
+  filter(winsorize == "winsorize") %>%
+  mutate(nobs = rowSums(select(., c(nobs.left, nobs.right)), na.rm = T)) %>%
+  distinct(nobs, covs, crime_type)
+
+output_fe %>%
+  filter(winsorize == "winsorize") %>%
+  mutate(
+    estimate_form = case_when(
+      p.value < 0.01 ~ paste0(round(estimate, 2), "***"),
+      p.value < 0.05 ~ paste0(round(estimate, 2), "**"),
+      p.value < 0.1 ~ paste0(round(estimate, 2), "*"),
+      TRUE ~ paste0(round(estimate, 2))
+    ),
+    coef_form = str_c(estimate_form, "\n(", round(std.error, 2), ")")
+  ) %>%
+  pivot_wider(
+    id_cols = c("year", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint"),
+    values_from = "coef_form"
+  ) %>%
+  select(c("year", "order", "covs"), matches("Conventional"), matches("Bias"), matches("Robust")) %>%
+  select(c("year", "order", "covs"), matches("property"), matches("violent")) %>%
+  write_csv(str_glue("../03_output/results_form__fe_{Sys.Date()}{file_suffix}.csv"))
 ```
 
 ## PLOTS
