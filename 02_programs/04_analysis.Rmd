@@ -85,18 +85,6 @@ analysis_file %>%
 analysis_file %>%
   group_by(treatment, treatment2) %>%
   summarize(n = n())
-
-analysis_file %>%
-  filter(centroid_distance_boundary >= 0) %>%
-  distinct(treatment)
-
-analysis_file_fe %>%
-  filter(centroid_distance_boundary >= 0) %>%
-  distinct(status)
-
-analysis_file_fe %>%
-  filter(centroid_distance_boundary < 0) %>%
-  distinct(status)
 ```
 
 ```{r}
@@ -167,13 +155,15 @@ tidy.rdrobust <- function(outcome, x, outcome_name, p = 1, c = 0, covs = NULL, .
 
 ```{r}
 ## Baseline Checks
-run_baseline_checks <- function(data, outcome, bandwidth) {
+run_baseline_checks <- function(data, outcome, bandwidth=NA) {
   # drop missing covariate values
-  data <- data %>%
-    filter(abs(centroid_distance_boundary) < bandwidth)
+  if (!is.na(bandwidth)) {
+    data <- data %>%
+      filter(abs(centroid_distance_boundary) < bandwidth)
+  }
 
   mod <- lm(paste0(outcome, "~ treatment"), data = data)
-  
+
   vals <- coeftest(mod, vcov = vcovHC(mod, type = "HC0"), cluster = ~GEOID)
   int <- vals[1, 1]
   treat_est <- vals[2, 1]
@@ -233,21 +223,13 @@ run_baseline_checks <- function(data, outcome, bandwidth) {
 
 ## BASELINE EQUIVALENCE
 
-```{r}
+```{r, warnings=F}
 baseline_data <- analysis_file %>%
   select(GEOID_b, constructs, centroid_distance_boundary, status, treatment, treatment2) %>%
   distinct()
 
 stopifnot(eeptools::isid(analysis_file, "GEOID_b"))
 stopifnot(eeptools::isid(baseline_data, "GEOID_b"))
-
-analysis_file %>%
-  mutate(missing_pop = !is.na(population)) %>%
-  filter(abs(centroid_distance_boundary) <= 200 & !is.na(population)) %>%
-  group_by(treatment, status, missing_pop) %>%
-  summarize(n = n()) %>%
-  ungroup() %>%
-  summarize(total = sum(n))
 ```
 
 ```{r}
@@ -255,7 +237,7 @@ analysis_file %>%
 bequiv <- map_dfr(
   cross2(
     constructs,
-    seq(264, 1056, 264)
+    c(NA, seq(264, 1056, 264))
   ),
   ~ run_baseline_checks(baseline_data, outcome = .[[1]], bandwidth = .[[2]])
 )
@@ -266,6 +248,7 @@ n_vals <- bequiv %>%
   summarize(N = formatC(max(N), big.mark = ",")) %>%
   mutate(var = "Total") %>%
   pivot_wider(id_cols = c("var"), names_from = "bandwidth", values_from = "N")
+n_vals
 ```
 
 ```{r}
@@ -312,7 +295,6 @@ bequiv %>%
 ## RESULTS
 
 ```{r}
-
 run_model_set <- function(outcome_data, running_var, outcomes, p, covs, c=0) {
   # vector to drop missing covariates
   keep_cov <- covs %>%
@@ -436,8 +418,10 @@ running_var <- analysis_file[["centroid_distance_boundary"]]
 covariates <- analysis_file[, constructs]
 censustracts <- analysis_file[["GEOID"]]
 
-outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"), 
-                   ~ str_c(., c("min4", "min3", "min1", 0, c(1:7, 10)))) %>%
+outcomes_cp <- map(
+  c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"),
+  ~ str_c(., c("min4", "min3", "min1", 0, c(1:7, 10)))
+) %>%
   unlist()
 outcome_data_cp <- analysis_file[, outcomes_cp]
 ```
@@ -479,7 +463,7 @@ output %>%
     coef_form = str_c(estimate_form, "\n(", round(std.error, 2), ")")
   ) %>%
   pivot_wider(
-    id_cols = c("quarter", "order", "covs"), 
+    id_cols = c("quarter", "order", "covs"),
     names_from = c("crime_type", "term", "arrest_or_complaint"),
     values_from = "coef_form"
   ) %>%
@@ -731,7 +715,7 @@ generate_rd_plot <- function(df, outcome_var, outcome_lab, p, covariates, type, 
   rdplot(outcome_col, running_var,
     p = p, y.label = str_glue("Average number of {type} per {time} (p={p})"),
     x.label = "distance", title = outcome_lab,
-    covs = covs, y.lim = c(0, 1), h=h, ...
+    covs = covs, y.lim = c(0, 1), h = h, ...
   )
 
   ggsave(str_glue("../03_output/rdplot_{outcome_var}_{p}.png"))
