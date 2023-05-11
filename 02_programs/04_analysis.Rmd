@@ -222,7 +222,7 @@ run_baseline_checks <- function(data, outcome, bandwidth=NA) {
 
 ## BASELINE EQUIVALENCE
 
-```{r}
+```{r, warnings=F}
 baseline_data <- analysis_file %>%
   select(GEOID_b, constructs, centroid_distance_boundary, status, treatment, treatment2) %>%
   distinct()
