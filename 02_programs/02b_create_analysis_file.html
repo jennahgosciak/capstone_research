@@ -419,7 +419,10 @@ acs_oz &lt;- read_csv(&quot;../00_data/acs_oz.csv&quot;)</code></pre>
 ##   # Now:
 ##   data %&gt;% select(all_of(constructs))
 ## 
-## See &lt;https://tidyselect.r-lib.org/reference/faq-external-vector.html&gt;.</code></pre>
+## See &lt;https://tidyselect.r-lib.org/reference/faq-external-vector.html&gt;.
+## This warning is displayed once every 8 hours.
+## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
+## generated.</code></pre>
 <pre><code>## Warning: Using an external vector in selections was deprecated in tidyselect 1.1.0.
 ## ℹ Please use `all_of()` or `any_of()` instead.
 ##   # Was:
@@ -428,7 +431,10 @@ acs_oz &lt;- read_csv(&quot;../00_data/acs_oz.csv&quot;)</code></pre>
 ##   # Now:
 ##   data %&gt;% select(all_of(urbanvars))
 ## 
-## See &lt;https://tidyselect.r-lib.org/reference/faq-external-vector.html&gt;.</code></pre>
+## See &lt;https://tidyselect.r-lib.org/reference/faq-external-vector.html&gt;.
+## This warning is displayed once every 8 hours.
+## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
+## generated.</code></pre>
 <pre class="r"><code>acs_oz %&gt;%
   group_by(DESIGNATED, LIC) %&gt;%
   summarize(n = n())</code></pre>
@@ -559,7 +565,7 @@ bind_rows(cp_oz2 %&gt;%
 <pre><code>## # A tibble: 1 × 3
 ##   violent_ellen_cp property_ellen_cp quarter
 ##              &lt;dbl&gt;             &lt;dbl&gt;   &lt;dbl&gt;
-## 1            97012            410778     100</code></pre>
+## 1            96869            409945     100</code></pre>
 <pre class="r"><code>stopifnot(eeptools::isid(cp_oz2, c(&quot;GEOID_b&quot;, &quot;quarter&quot;)))</code></pre>
 <pre class="r"><code># Winsorize
 ar_oz2 &lt;- ar_oz2 %&gt;%
@@ -582,7 +588,7 @@ cp_oz3 &lt;- cp_oz2 %&gt;%
   ungroup() %&gt;%
   select(GEOID_b, GEOID, quarter, starts_with(&quot;violent_ellen&quot;), starts_with(&quot;property_ellen&quot;))
 cp_oz3</code></pre>
-<pre><code>## # A tibble: 310,622 × 7
+<pre><code>## # A tibble: 310,347 × 7
 ##    GEOID_b       GEOID quarter violent_ellen_cp violent_ellen_…¹ prope…² prope…³
 ##      &lt;dbl&gt;       &lt;dbl&gt;   &lt;dbl&gt;            &lt;dbl&gt;            &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;
 ##  1 3.60e14 36005000100      -4                0                0       0       0
@@ -595,7 +601,7 @@ cp_oz3</code></pre>
 ##  8 3.60e14 36005000100      -3               76               76       4       4
 ##  9 3.60e14 36005000100      -2               55               55      12      12
 ## 10 3.60e14 36005000100      -1               53               53       6       6
-## # … with 310,612 more rows, and abbreviated variable names
+## # … with 310,337 more rows, and abbreviated variable names
 ## #   ¹​violent_ellen_winsorize_cp, ²​property_ellen_cp,
 ## #   ³​property_ellen_winsorize_cp</code></pre>
 <pre class="r"><code># WITH remerging ACS but keeping original as well (so covaraite.x and covariate.y)
@@ -614,32 +620,11 @@ analysis_file &lt;- full_join(ar_oz3, cp_oz3,
   mutate(across(starts_with(&quot;violent_ellen&quot;), ~ if_else(is.na(.), 0, .))) %&gt;%
   mutate(across(starts_with(&quot;property_ellen&quot;), ~ if_else(is.na(.), 0, .))) %&gt;%
   # make distance negative if inside the boundary
-  mutate(centroid_distance_boundary = if_else(status == &quot;Selected&quot;, centroid_distance_boundary, -1 * centroid_distance_boundary))
+  mutate(centroid_distance_boundary = if_else(status == &quot;Selected&quot;, 
+                                              centroid_distance_boundary, -1 * centroid_distance_boundary))
 
 eeptools::isid(analysis_file, &quot;GEOID_b&quot;) %&gt;%
-  stopifnot()
-
-analysis_file</code></pre>
-<pre><code>## # A tibble: 38,798 × 139
-##    GEOID_b       GEOID violent…¹ viole…² viole…³ viole…⁴ viole…⁵ viole…⁶ viole…⁷
-##      &lt;dbl&gt;       &lt;dbl&gt;     &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;
-##  1 3.60e14 36005000100         0       1       1       0       0       0       0
-##  2 3.60e14 36005000100         1       0       2       0       0       0       0
-##  3 3.60e14 36005000100         1       0       1       0       0       0       0
-##  4 3.60e14 36005000200         0       0       0       0       1       0       0
-##  5 3.60e14 36005000200         0       0       0       0       0       0       0
-##  6 3.60e14 36005000200         1       0       0       0       1       0       0
-##  7 3.60e14 36005000200         2       0       0       0       0       0       0
-##  8 3.60e14 36005000200         0       0       1       0       0       0       0
-##  9 3.60e14 36005000400         0       0       0       0       0       0       0
-## 10 3.60e14 36005000400         0       0       0       0       1       0       0
-## # … with 38,788 more rows, 130 more variables: violent_ellen_ar_3 &lt;dbl&gt;,
-## #   violent_ellen_ar_4 &lt;dbl&gt;, violent_ellen_ar_5 &lt;dbl&gt;,
-## #   violent_ellen_ar_6 &lt;dbl&gt;, violent_ellen_ar_7 &lt;dbl&gt;,
-## #   violent_ellen_ar_8 &lt;dbl&gt;, violent_ellen_ar_9 &lt;dbl&gt;,
-## #   violent_ellen_ar_10 &lt;dbl&gt;, violent_ellen_winsorize_ar_min4 &lt;dbl&gt;,
-## #   violent_ellen_winsorize_ar_min3 &lt;dbl&gt;,
-## #   violent_ellen_winsorize_ar_min2 &lt;dbl&gt;, …</code></pre>
+  stopifnot()</code></pre>
 <pre class="r"><code># file for running with fixed effects
 analysis_file_fe &lt;- full_join(ar_oz3, cp_oz3,
   by = c(&quot;GEOID_b&quot;, &quot;quarter&quot;, &quot;GEOID&quot;)
@@ -667,7 +652,7 @@ analysis_file_fe &lt;- full_join(ar_oz3, cp_oz3,
   ))
 
 analysis_file_fe</code></pre>
-<pre><code>## # A tibble: 327,039 × 52
+<pre><code>## # A tibble: 326,816 × 52
 ##    GEOID_b       GEOID quarter violent…¹ viole…² viole…³ viole…⁴ viole…⁵ viole…⁶
 ##      &lt;dbl&gt;       &lt;dbl&gt;   &lt;dbl&gt;     &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;
 ##  1 3.60e14 36005000100      -4         0       0       0       0       0       0
@@ -680,7 +665,7 @@ analysis_file_fe</code></pre>
 ##  8 3.60e14 36005000200      -4         0       0       0       0       0       0
 ##  9 3.60e14 36005000400      -4         0       0       0       0       0       0
 ## 10 3.60e14 36005000400      -4         0       0       0       0       0       0
-## # … with 327,029 more rows, 43 more variables:
+## # … with 326,806 more rows, 43 more variables:
 ## #   violent_ellen_winsorize_ar_year1 &lt;dbl&gt;,
 ## #   violent_ellen_winsorize_ar_NA &lt;dbl&gt;, `violent_ellen_cp_year-1` &lt;dbl&gt;,
 ## #   violent_ellen_cp_year0 &lt;dbl&gt;, violent_ellen_cp_year1 &lt;dbl&gt;,
@@ -713,7 +698,8 @@ cb &lt;- st_read(&quot;https://data.cityofnewyork.us/resource/twhy-dzjp.geojson?
 ## Dimension:     XY
 ## Bounding box:  xmin: -74.25559 ymin: 40.49613 xmax: -73.70001 ymax: 40.91553
 ## Geodetic CRS:  WGS 84</code></pre>
-<pre class="r"><code>analysis_file_geom &lt;- left_join(analysis_file, cb, &quot;GEOID_b&quot; = &quot;GEOID_b&quot;, &quot;GEOID&quot; = &quot;GEOID&quot;)</code></pre>
+<pre class="r"><code>analysis_file_geom &lt;- left_join(analysis_file, cb, &quot;GEOID_b&quot; = &quot;GEOID_b&quot;,
+                                &quot;GEOID&quot; = &quot;GEOID&quot;)</code></pre>
 <pre><code>## Joining, by = c(&quot;GEOID_b&quot;, &quot;GEOID&quot;)</code></pre>
 <pre class="r"><code># check missingness
 unique_geoid_missing &lt;- analysis_file %&gt;%
@@ -756,7 +742,7 @@ analysis_file_fe %&gt;%
 
 analysis_file_geom %&gt;%
   st_write(&quot;../00_data/analysis_file_geom.geojson&quot;, delete_dsn = T)</code></pre>
-<pre><code>## Deleting source `../00_data/analysis_file_geom.geojson&#39; failed
+<pre><code>## Deleting source `../00_data/analysis_file_geom.geojson&#39; using driver `GeoJSON&#39;
 ## Writing layer `analysis_file_geom&#39; to data source 
 ##   `../00_data/analysis_file_geom.geojson&#39; using driver `GeoJSON&#39;
 ## Writing 38798 features with 147 fields and geometry type Unknown (any).</code></pre>

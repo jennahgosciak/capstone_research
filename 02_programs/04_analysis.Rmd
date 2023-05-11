@@ -62,10 +62,10 @@ analysis_file %>%
 ```{r}
 analysis_file_fe <- read_csv("../00_data/analysis_file_fe.csv") %>%
   mutate(
-    quarter_1 = if_else(quarter2 == 1, 1, 0),
-    quarter_2 = if_else(quarter2 == 2, 1, 0),
-    quarter_3 = if_else(quarter2 == 3, 1, 0),
-    quarter_4 = if_else(quarter2 == 4, 1, 0)
+    quarter1 = if_else(quarter %in% c(-4, 0, 4), 1, 0),
+    quarter2 = if_else(quarter %in% c(-3, 1, 5), 1, 0),
+    quarter3 = if_else(quarter %in% c(-2, 2, 6), 1, 0),
+    quarter4 = if_else(quarter %in% c(-1, 3, 7), 1, 0)
   )
 
 analysis_file_fe %>% 
@@ -370,24 +370,7 @@ theory_run_model_set_cluster <- function(outcome_data, running_var, outcomes, p,
     )))
 }
 
-run_model_set_fe <- function(outcome_data, running_var, outcomes, p, covs) {
-  # vector to drop missing covariates
-  keep_cov <- covs %>%
-    is.na() %>%
-    rowSums() %>%
-    magrittr::equals(0)
-  # drop missing covariate values
-  outcome_data_cov <- outcome_data[keep_cov, ]
-  running_var_cov <- running_var[keep_cov]
-  covs <- covs[keep_cov, ]
-  sum(is.na(running_var_cov))
-  return(map2_dfr(
-    outcome_data_cov, outcomes,
-    ~ tidy.rdrobust(.x, running_var_cov, .y, p = p, covs = covs)
-  ))
-}
-
-run_model_set_fe_cluster <- function(outcome_data, running_var, outcomes, p, covs, cluster) {
+theory_run_model_set <- function(outcome_data, running_var, outcomes, p, covs, bandwidth) {
   # vector to drop missing covariates
   keep_cov <- covs %>%
     is.na() %>%
@@ -398,22 +381,26 @@ run_model_set_fe_cluster <- function(outcome_data, running_var, outcomes, p, cov
   outcome_data_cov <- outcome_data[keep_cov, ]
   running_var_cov <- running_var[keep_cov]
   covs <- covs[keep_cov, ]
-  censustracts_cov <- cluster[keep_cov]
 
-  sum(is.na(running_var_cov))
   return(map2_dfr(
-    outcome_data_cov, outcomes,
-    ~ tidy.rdrobust(.x, running_var_cov, .y, p = p, covs = covs, cluster = censustracts_cov)
-  ))
+    outcome_data, outcomes,
+    ~ tidy.rdrobust(.x, running_var, .y, p = p, h = bandwidth, b = bandwidth)
+  ) %>%
+    bind_rows(map2_dfr(
+      outcome_data_cov, outcomes,
+      ~ tidy.rdrobust(.x, running_var_cov, .y,
+        p = p, covs = covs, h = bandwidth, b = bandwidth)
+    )))
 }
 ```
 
-## RESULTS
+## RESULTS SETUP
+
 ```{r}
 # define data and outcomes
 outcomes_ar <- map(
   c("violent_ellen_winsorize_ar_", "property_ellen_winsorize_ar_"),
-  ~ str_c(., c("min4", "min3", "min1", 0, c(1:7, 10)))
+  ~ str_c(., c("min4", "min3", "min2", "min1", 0, c(1:7, 10)))
 ) %>%
   unlist()
 
@@ -424,7 +411,7 @@ censustracts <- analysis_file[["GEOID"]]
 
 outcomes_cp <- map(
   c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"),
-  ~ str_c(., c("min4", "min3", "min1", 0, c(1:7, 10)))
+  ~ str_c(., c("min4", "min3", "min2", "min1", 0, c(1:7, 10)))
 ) %>%
   unlist()
 outcome_data_cp <- analysis_file[, outcomes_cp]
@@ -454,8 +441,9 @@ output %>%
 output
 output %>%
   filter(winsorize == "winsorize") %>%
-  mutate(nobs = rowSums(select(., c(nobs.left, nobs.right)), na.rm = T)) %>%
-  distinct(nobs, covs, crime_type)
+  mutate(nobs = rowSums(select(., c(nobs.effective.left, nobs.effective.right)), na.rm = T)) %>%
+  group_by(covs, crime_type, order) %>% 
+  summarize(nobs = min(nobs))
 
 output %>%
   filter(winsorize == "winsorize") %>%
@@ -523,8 +511,9 @@ bandwidththeory_all_formatted %>%
 
 bandwidththeory_all_formatted %>%
   filter(winsorize == "winsorize") %>%
-  mutate(nobs = rowSums(select(., c(nobs.left, nobs.right)), na.rm = T)) %>%
-  distinct(nobs, covs, crime_type)
+  mutate(nobs = rowSums(select(., c(nobs.effective.left, nobs.effective.right)), na.rm = T)) %>%
+  group_by(covs, order, crime_type) %>% 
+  summarize(nobs = min(nobs))
 
 bandwidththeory_all_formatted %>%
   filter(winsorize == "winsorize") %>%
@@ -611,8 +600,10 @@ output %>%
     id_cols = c("quarter", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint", "cutoff"),
     values_from = "coef_form"
   ) %>%
-  select(c("quarter", "order", "covs"), matches("Robust")) %>%
-  select(c("quarter", "order", "covs"), ends_with("-264"), 
+  select(c("quarter", "order", "covs"), 
+         matches("Robust")) %>%
+  select(c("quarter", "order", "covs"), 
+         ends_with("-264"), 
          ends_with("-528"), ends_with("-792"), ends_with("-1056")) %>%
   select(c("quarter", "order", "covs"), matches("property"), matches("violent")) %>%
   write_csv(str_glue("../03_output/placebo_form_{Sys.Date()}{file_suffix}.csv"))
@@ -622,17 +613,23 @@ output %>%
 ```{r}
 # define data and outcomes
 outcomes_ar <- map(
-  c("violent_ellen_winsorize_ar_", "property_ellen_winsorize_ar_"),
+  c("violent_ellen_winsorize_ar_", 
+    "property_ellen_winsorize_ar_"),
   ~ str_c(., c("year-1", "year0", "year1"))
 ) %>%
   unlist()
 
+outcomes_ar <- outcomes_ar
+outcomes_cp <- outcomes_cp
 running_var <- analysis_file_fe[["centroid_distance_boundary"]]
 outcome_data_ar <- analysis_file_fe[, outcomes_ar]
-covariates <- analysis_file_fe[, c(constructs, str_c("quarter_", 1:3))]
+covariates <- analysis_file_fe[, c(constructs,
+                                   str_c("quarter", 1:3))]
 censustracts <- analysis_file_fe[["GEOID"]]
 
-outcomes_cp <- map(c("violent_ellen_winsorize_cp_", "property_ellen_winsorize_cp_"), ~ str_c(., c("year-1", "year0", "year1"))) %>%
+outcomes_cp <- map(c("violent_ellen_winsorize_cp_", 
+                     "property_ellen_winsorize_cp_"), 
+                   ~ str_c(., c("year-1", "year0", "year1"))) %>%
   unlist()
 outcome_data_cp <- analysis_file_fe[, outcomes_cp]
 ```
@@ -640,40 +637,39 @@ outcome_data_cp <- analysis_file_fe[, outcomes_cp]
 ```{r}
 output_fe <- map_dfr(
   c(1, 4),
-  ~ run_model_set_fe_cluster(outcome_data_ar, running_var, outcomes_ar, p = ., 
-                             covs=covariates, cluster=censustracts)
-) %>%
+  ~ run_model_set(outcome_data_ar, running_var, 
+                             outcomes_ar, p = ., covs=covariates)
+  ) %>%
   bind_rows(map_dfr(
     c(1, 4),
-    ~ run_model_set_fe_cluster(outcome_data_cp, running_var, outcomes_cp, p = ., 
-                               covs=covariates, cluster=censustracts)
+    ~ run_model_set(outcome_data_cp, 
+                    running_var,
+                    outcomes_cp, p = ., covs=covariates)
   ))
 
 output_fe <- output_fe %>%
   separate(outcome, c("crime_type", 
-                      "measurement", "winsorize", 
+                      "measurement", 
+                      "winsorize", 
                       "arrest_or_complaint", "year")) %>%
   select(-c(measurement)) %>%
-  select(crime_type, arrest_or_complaint, winsorize, term, 
+  select(crime_type, arrest_or_complaint, 
+         winsorize, term, 
          order, covs, year, everything()) %>%
-  arrange(crime_type, arrest_or_complaint, term, order, covs, year)
+  arrange(crime_type, arrest_or_complaint, 
+          term, order, covs, year)
 
+output_fe
 output_fe %>%
   write_csv(str_glue("../03_output/results_fe_{Sys.Date()}{file_suffix}.csv"))
-```
-```{r}
-analysis_file_fe %>% 
-  group_by(GEOID_b) %>% 
-  filter(n() > 4) %>% 
-  mutate(GEOID_b = as.character(GEOID_b)) %>% 
-  arrange(GEOID_b, GEOID, quarter2)
 ```
 
 ```{r}
 output_fe %>%
   filter(winsorize == "winsorize") %>%
-  mutate(nobs = rowSums(select(., c(nobs.left, nobs.right))/4, na.rm = T)) %>%
-  distinct(nobs, covs, crime_type)
+  mutate(nobs = rowSums(select(., c(nobs.effective.left, nobs.effective.right)), na.rm = T)) %>%
+  group_by(covs, crime_type, order) %>% 
+  summarize(nobs = min(nobs))
 
 output_fe %>%
   filter(winsorize == "winsorize") %>%
@@ -690,7 +686,10 @@ output_fe %>%
     id_cols = c("year", "order", "covs"), names_from = c("crime_type", "term", "arrest_or_complaint"),
     values_from = "coef_form"
   ) %>%
-  select(c("year", "order", "covs"), matches("Conventional"), matches("Bias"), matches("Robust")) %>%
+  select(c("year", "order", "covs"), 
+         matches("Conventional"),
+         matches("Bias"),
+         matches("Robust")) %>%
   select(c("year", "order", "covs"), matches("property"), matches("violent")) %>%
   write_csv(str_glue("../03_output/results_form__fe_{Sys.Date()}{file_suffix}.csv"))
 ```
